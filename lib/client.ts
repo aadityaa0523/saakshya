@@ -23,6 +23,25 @@ export function forgetReport(id: string) {
   } catch {}
 }
 
+// Stays in this browser tab; a story must never travel in a web address
+const DRAFT_KEY = "saakshya-draft";
+
+export function saveDraft(text: string) {
+  try {
+    sessionStorage.setItem(DRAFT_KEY, text);
+  } catch {}
+}
+
+export function takeDraft(): string {
+  try {
+    const text = sessionStorage.getItem(DRAFT_KEY) ?? "";
+    sessionStorage.removeItem(DRAFT_KEY);
+    return text;
+  } catch {
+    return "";
+  }
+}
+
 export const LANGUAGES: [string, string][] = [
   ["English", "English"], ["Hindi", "हिन्दी"], ["Bengali", "বাংলা"], ["Marathi", "मराठी"], ["Telugu", "తెలుగు"],
   ["Tamil", "தமிழ்"], ["Gujarati", "ગુજરાતી"], ["Urdu", "اردو"], ["Kannada", "ಕನ್ನಡ"], ["Odia", "ଓଡ଼ିଆ"],

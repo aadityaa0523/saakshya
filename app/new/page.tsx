@@ -2,11 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "../Icons";
 import type { Step, TriageResult } from "@/lib/agent";
-import { LANGUAGES, rememberReport } from "@/lib/client";
-import { recordingToWav } from "@/lib/wav";
+import { LANGUAGES, rememberReport, takeDraft } from "@/lib/client";
+import { SCAM_TYPES } from "@/lib/scams";
+import { useVoice } from "@/lib/useVoice";
 
 const SAMPLES = [
   "A man said he was from my bank and sent a link. I paid ₹12,000 through UPI to him just now.",
@@ -28,7 +29,9 @@ export default function NewReport() {
   const [category, setCategory] = useState("");
   useEffect(() => {
     const selected = new URLSearchParams(window.location.search).get("category") ?? "";
-    if (["Financial fraud", "Threats & blackmail", "Identity misuse", "Online shopping scams", "Online harassment", "Something else"].includes(selected)) setCategory(selected);
+    if (SCAM_TYPES.some((scam) => scam.title === selected || scam.group === selected)) setCategory(selected);
+    const draft = takeDraft();
+    if (draft) setStory(draft);
   }, []);
   const [language, setLanguage] = useState("English");
   useEffect(() => {
@@ -41,49 +44,10 @@ export default function NewReport() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [crisis, setCrisis] = useState(false);
-  const [recording, setRecording] = useState(false);
-  const [hearing, setHearing] = useState(false);
   const [reading, setReading] = useState(false);
   const [attached, setAttached] = useState<File | null>(null);
-  const recorder = useRef<MediaRecorder | null>(null);
 
-  async function toggleRecording() {
-    if (recorder.current) {
-      recorder.current.stop();
-      return;
-    }
-    setError("");
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const media = new MediaRecorder(stream);
-      const chunks: Blob[] = [];
-      media.ondataavailable = (event) => chunks.push(event.data);
-      media.onstop = async () => {
-        stream.getTracks().forEach((track) => track.stop());
-        recorder.current = null;
-        setRecording(false);
-        setHearing(true);
-        const form = new FormData();
-        try {
-          form.append("file", new File([await recordingToWav(new Blob(chunks))], "voice.wav", { type: "audio/wav" }));
-          const response = await fetch("/api/transcribe", { method: "POST", body: form });
-          const body = await response.json();
-          if (!response.ok) throw new Error(body.error);
-          setStory((current) => [current, body.transcript].filter(Boolean).join(" "));
-        } catch (failure) {
-          setError(failure instanceof Error ? failure.message : "We could not hear that. Please type instead.");
-        }
-        setHearing(false);
-      };
-      media.start();
-      // 16 kHz audio reaches the 4 MB upload limit at about two minutes
-      setTimeout(() => { if (media.state === "recording") media.stop(); }, 110_000);
-      recorder.current = media;
-      setRecording(true);
-    } catch {
-      setError("We could not use your microphone. Please allow it, or type instead.");
-    }
-  }
+  const voice = useVoice((transcript) => setStory((current) => [current, transcript].filter(Boolean).join(" ")), setError);
 
   async function readScreenshot(file: File) {
     setReading(true);
@@ -179,7 +143,7 @@ export default function NewReport() {
       <h1>What happened?</h1>
       <p className="lead">Use your own words. Include the amount, bank, UTR and the scammer&apos;s number or UPI ID if you have them.</p>
       <ol className="form-progress" aria-label="Preparation stages"><li aria-current="step"><b>1</b> Your account</li><li><b>2</b> Review draft</li><li><b>3</b> Next steps</li></ol>
-      {category && <p className="category-note">You selected: <strong>{category}</strong>. Describe what happened below; your account determines the report details.</p>}
+      {category && <p className="category-note">You selected: <strong>{category}</strong>. {SCAM_TYPES.find((scam) => scam.title === category)?.tip ?? "Describe what happened below."} You can change the category later.</p>}
       <div className="panel warning"><strong>Never type your OTP, PIN, CVV or password.</strong> Saakshya does not need them.</div>
       <form onSubmit={submit} className="report-form">
         <label htmlFor="language">Language for your draft</label>
@@ -190,8 +154,8 @@ export default function NewReport() {
         <div className="intake-grid">
           <div className="intake-voice">
             <p className="intake-label">Voice note</p>
-            <button type="button" className={`mic-button ${recording ? "is-recording" : ""}`} onClick={toggleRecording} disabled={busy || hearing} aria-label={recording ? "Stop recording" : "Start recording"}><Icon name="mic"/></button>
-            <p className="field-help" aria-live="polite">{recording ? "Recording. Tap to stop." : hearing ? "Listening back..." : "Tap the mic and speak. You can check the words afterwards."}</p>
+            <button type="button" className={`mic-button ${voice.recording ? "is-recording" : ""}`} onClick={voice.toggle} disabled={busy || voice.hearing} aria-label={voice.recording ? "Stop recording" : "Start recording"}><Icon name="mic"/></button>
+            <p className="field-help" aria-live="polite">{voice.recording ? "Recording. Tap to stop." : voice.hearing ? "Listening back..." : "Tap the mic and speak. You can check the words afterwards."}</p>
           </div>
           <div className="intake-side">
             <label htmlFor="story">Type what happened</label>
@@ -215,7 +179,7 @@ export default function NewReport() {
         </div>
 
         <div className="actions">
-          <button type="submit" className="button wide" disabled={busy || recording || hearing || reading}>Prepare my report<Icon name="arrow"/></button>
+          <button type="submit" className="button wide" disabled={busy || voice.recording || voice.hearing || reading}>Prepare my report<Icon name="arrow"/></button>
         </div>
       </form>
 
