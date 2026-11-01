@@ -18,7 +18,8 @@ export function extractStrings(source) {
   // Text between JSX tags or expressions
   for (const match of source.matchAll(/[>}]([^<>{}]*[A-Za-z][^<>{}]*)[<{]/g)) found.add(clean(match[1]));
   // Quoted wording such as labels, placeholders and data arrays
-  for (const match of source.matchAll(/["`]((?:[^"`\\$]|\\.){2,700})["`]/g)) {
+  // A lone backtick must not pair with a quote on a later line, so only double quotes on one line count
+  for (const match of source.matchAll(/"((?:[^"\\\n]|\\.){2,700})"/g)) {
     const text = clean(match[1].replace(/\\"/g, '"'));
     if (/^[A-Z][a-z]+$/.test(text) || (/ /.test(text) && /^[A-Z₹"“]/.test(text))) found.add(text);
   }

@@ -10,10 +10,10 @@ export default function Accessibility() {
       <h2>What we have done</h2>
       <ul>
         <li>Real buttons and form labels, a skip link, and a layout that works at phone width.</li>
-        <li>Voice input, and drafts in 15 languages.</li>
+        <li>Voice input, with drafts and site wording in 15 languages.</li>
       </ul>
       <h2>Known limits</h2>
-      <p>Saakshya has not had an independent accessibility audit. The site&apos;s own menus and pages are still in English. If something blocks you, please <a href={`${REPO}/issues`} target="_blank" rel="noreferrer">tell us</a>.</p>
+      <p>Saakshya has not had an independent accessibility audit. Translations are made by AI and may contain mistakes, and some messages may still appear in English. If something blocks you, please <a href={`${REPO}/issues`} target="_blank" rel="noreferrer">tell us</a>.</p>
     </article>
   );
 }

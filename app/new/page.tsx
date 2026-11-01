@@ -31,6 +31,12 @@ export default function NewReport() {
     if (["Financial fraud", "Threats & blackmail", "Identity misuse", "Online shopping scams", "Online harassment", "Something else"].includes(selected)) setCategory(selected);
   }, []);
   const [language, setLanguage] = useState("English");
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("saakshya-language");
+      if (saved && LANGUAGES.some(([name]) => name === saved)) setLanguage(saved);
+    } catch {}
+  }, []);
   const [steps, setSteps] = useState<Step[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
