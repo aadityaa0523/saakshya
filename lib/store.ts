@@ -50,7 +50,7 @@ export async function searchLaws(query: Query, terms: string): Promise<LawCandid
   const { rows } = await query(
     `SELECT id, act, section, text, source_url FROM law_sections
      WHERE search @@ to_tsquery('english', $1)
-     ORDER BY ts_rank(search, to_tsquery('english', $1)) DESC LIMIT 8`,
+     ORDER BY ts_rank(search, to_tsquery('english', $1), 1) DESC LIMIT 12`,
     [orQuery(terms)],
   );
   return rows;

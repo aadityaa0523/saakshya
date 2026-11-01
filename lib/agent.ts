@@ -81,7 +81,7 @@ export async function runTriage(raw: string, language: string, tools: Tools, emi
 
   const extracted = await tools.ask(
     `Extract from this cybercrime story. Return {"category": one of ${JSON.stringify(CATEGORIES)}, "amount": rupees lost as a number or null, ` +
-      `"bank_name": the victim's bank or null, "summary_en": two factual English sentences, "search_terms": English legal keywords for finding applicable law, ` +
+      `"bank_name": the victim's bank or null, "summary_en": two factual English sentences, "search_terms": English criminal-offence keywords for finding applicable law, such as cheating, personation, identity theft, extortion, criminal intimidation, obscene material,` +
       `"question": the single most useful question to ask next, in language ${language}}. Use null when not stated. Do not guess.\n${wrapStory(text)}`,
     Extraction,
   );
@@ -108,7 +108,7 @@ export async function runTriage(raw: string, language: string, tools: Tools, emi
   const laws: TriageResult["laws"] = [];
   if (candidates.length) {
     const chosen = await tools.ask(
-      `Choose up to 4 sections that may apply and give a one-line reason for each. Return {"picks":[{"id","reason"}]}. Use only these sections:\n` +
+      `Choose up to 4 sections that define an offence matching these facts, and give a one-line reason for each. Skip procedural sections and any section that does not clearly fit; choose none if none fit. Return {"picks":[{"id","reason"}]}. Use only these sections:\n` +
         `${candidates.map((c) => `${c.id}: ${c.text.slice(0, 700)}`).join("\n\n")}\n${wrapStory(fields.summary)}`,
       LawPicks,
     );

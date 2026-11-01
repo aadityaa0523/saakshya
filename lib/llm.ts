@@ -21,6 +21,7 @@ export const askLlm: AskLlm = async (prompt, schema) => {
         body: JSON.stringify({ model: LLM_MODEL, messages: [{ role: "system", content: SYSTEM }, { role: "user", content: prompt }] }),
         signal: AbortSignal.timeout(25_000),
       });
+      if (response.status === 429) await new Promise((resolve) => setTimeout(resolve, 3000));
       if (!response.ok) throw new Error(`status ${response.status}`);
       const body = await response.json();
       const json = body.choices[0].message.content.match(/\{[\s\S]*\}/)?.[0];
