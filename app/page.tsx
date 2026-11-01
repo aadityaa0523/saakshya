@@ -1,4 +1,7 @@
+import Image from "next/image";
 import Link from "next/link";
+import { PostCards } from "./PostCards";
+import { photo } from "@/lib/blog";
 import { query } from "@/lib/server";
 import { OFFICIAL } from "@/lib/site";
 
@@ -11,12 +14,12 @@ const STEPS = [
 ];
 
 const CASES = [
-  ["Money fraud", "UPI, bank, OTP or card"],
-  ["Threats or blackmail", "Loan apps, sextortion"],
-  ["Identity misuse", "PAN, Aadhaar, fake profiles"],
-  ["Shopping scams", "Fake shops and delivery"],
-  ["Harassment", "Stalking and online abuse"],
-  ["Something else", "Hacking or stolen data"],
+  ["Money fraud", "UPI, bank, OTP or card", "1556742521-9713bf272865"],
+  ["Threats or blackmail", "Loan apps, sextortion", "1493836512294-502baa1986e2"],
+  ["Identity misuse", "PAN, Aadhaar, fake profiles", "1614064641938-3bbee52942c7"],
+  ["Shopping scams", "Fake shops and delivery", "1713947506242-8fcae733d158"],
+  ["Harassment", "Stalking and online abuse", "1776797391265-01a0490d4c99"],
+  ["Something else", "Hacking or stolen data", "1614064548016-0b5c13ca2c85"],
 ];
 
 /** Real counts only. If the database is unavailable the row is hidden, never filled with placeholders. */
@@ -40,12 +43,15 @@ export default async function Home() {
           <p className="lead">Tell us what happened. Saakshya turns it into a clear complaint draft, finds the details still missing, and shows who to contact first.</p>
           <div className="actions"><Link href="/new" className="button">Start a report</Link></div>
         </div>
-        <aside className="hero-card">
-          <p className="eyebrow">Is money gone right now?</p>
-          <h2>Call before you do anything else</h2>
-          <a href="tel:1930" className="hero-number">1930</a>
-          <p>National cyber fraud helpline. You can finish your report after the call.</p>
-        </aside>
+        <div className="hero-visual">
+          <Image src={photo("1689848693914-7ba25d9f3334", 1200)} alt="A woman at a computer talking on her phone" width={1200} height={800} unoptimized priority />
+          <aside className="hero-card">
+            <p className="eyebrow">Is money gone right now?</p>
+            <h2>Call before you do anything else</h2>
+            <a href="tel:1930" className="hero-number">1930</a>
+            <p>National cyber fraud helpline. You can finish your report after the call.</p>
+          </aside>
+        </div>
       </section>
 
       {stats && (
@@ -68,7 +74,12 @@ export default async function Home() {
         <p className="eyebrow">Choose what happened</p>
         <h2>What you can report</h2>
         <div className="case-grid">
-          {CASES.map(([title, text]) => <Link key={title} href="/new" className="case"><strong>{title}</strong><span>{text}</span></Link>)}
+          {CASES.map(([title, text, image]) => (
+            <Link key={title} href="/new" className="photo-card">
+              <Image src={photo(image, 600)} alt="" width={600} height={340} unoptimized />
+              <div><strong>{title}</strong><span>{text}</span></div>
+            </Link>
+          ))}
         </div>
       </section>
 
@@ -80,6 +91,12 @@ export default async function Home() {
           <li>Promise your money back.</li>
           <li>File anything for you. You stay in control of every report.</li>
         </ul>
+      </section>
+
+      <section>
+        <p className="eyebrow">Guides</p>
+        <h2>Stay safe and act quickly</h2>
+        <PostCards />
       </section>
 
       <section>

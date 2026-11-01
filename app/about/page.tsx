@@ -18,7 +18,7 @@ export default function About() {
       </ul>
       <h2>What it is not</h2>
       <p>Saakshya is an independent hackathon project. It is not a government service, a law firm or a bank. It cannot file a report, freeze money or get money back.</p>
-      <p>The code is public on <a href={REPO} target="_blank" rel="noreferrer">GitHub</a>.</p>
+      <p>The code is public on <a href={REPO} target="_blank" rel="noreferrer">GitHub</a>. Photos are from <a href="https://unsplash.com" target="_blank" rel="noreferrer">Unsplash</a> and show people who are not connected to any case.</p>
     </article>
   );
 }
