@@ -3,6 +3,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { beforeAll, describe, expect, it } from "vitest";
 import { factCheck, missingFields, priorityOf, ReportEdit, runFollowup, runTriage, type Fields, type Tools } from "@/lib/agent";
 import { chainIsValid, nextEntry } from "@/lib/chain";
+import { addEvidence, getEvidence, overLimit, sniffType } from "@/lib/evidence";
 import { LlmError } from "@/lib/llm";
 import { sanitize, SecretBlocked, urgencyOf } from "@/lib/safety";
 import { appendEvent, createReport, getReport, searchLaws, verifyChain, type Query } from "@/lib/store";
@@ -88,6 +89,14 @@ describe("rules", () => {
   });
 });
 
+describe("evidence types", () => {
+  it("trusts file contents, not names", () => {
+    expect(sniffType(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]))).toBe("image/jpeg");
+    expect(sniffType(new TextEncoder().encode("%PDF-1.7"))).toBe("application/pdf");
+    expect(sniffType(new TextEncoder().encode("<script>alert(1)</script>"))).toBeNull();
+  });
+});
+
 describe("report edits", () => {
   it("accepts valid details and clears empty ones", () => {
     expect(ReportEdit.parse({ utr: "482910394821", ifsc: "" })).toEqual({ utr: "482910394821", ifsc: null });
@@ -154,6 +163,23 @@ describe("database", () => {
     expect((await verifyChain(query, id)).valid).toBe(true);
     await query("UPDATE report_events SET event = $1 WHERE report_id = $2 AND seq = 1", [JSON.stringify({ type: "forged" }), id]);
     expect((await verifyChain(query, id)).valid).toBe(false);
+  });
+  it("stores evidence, fingerprints it in the record and detects a changed file", async () => {
+    const result = await runTriage("I sent ₹50,000 through a UPI link", "hi", fakeTools(), () => {});
+    const { id } = await createReport(query, result, "hi");
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 1, 2, 3]);
+    const saved = await addEvidence(query, id, "../proof<1>.png", png, "image/png");
+    expect(saved!.name).toBe(".._proof_1_.png");
+    expect((await getEvidence(query, id, saved!.id))!.intact).toBe(true);
+    expect((await verifyChain(query, id)).events.at(-1)!.event).toMatchObject({ type: "evidence_added", sha256: saved!.sha256 });
+    await query("UPDATE evidence SET data = $1 WHERE id = $2", [new Uint8Array([9]), saved!.id]);
+    expect((await getEvidence(query, id, saved!.id))!.intact).toBe(false);
+    expect(await getEvidence(query, "00000000-0000-4000-8000-000000000000", saved!.id)).toBeNull();
+  });
+  it("limits requests per client", async () => {
+    expect(await overLimit(query, "1.2.3.4", "test", 1)).toBe(false);
+    expect(await overLimit(query, "1.2.3.4", "test", 1)).toBe(true);
+    expect(await overLimit(query, "5.6.7.8", "test", 1)).toBe(false);
   });
   it("finds law sections by full-text search", async () => {
     expect((await searchLaws(query, "cheating personation")).map((l) => l.id)).toEqual(["it-66d"]);

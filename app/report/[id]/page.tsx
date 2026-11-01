@@ -18,6 +18,8 @@ const ACTIONS: [string, string][] = [
   ["called_1930", "I called 1930"], ["told_bank", "I told my bank"], ["filed_portal", "I filed on cybercrime.gov.in"], ["filed_police", "I went to the police"],
 ];
 
+type EvidenceFile = { id: string; name: string; size: number; sha256: string };
+
 export default function ReportPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -29,6 +31,7 @@ export default function ReportPage() {
   const [busy, setBusy] = useState(false);
   const [acknowledgement, setAcknowledgement] = useState("");
   const [chain, setChain] = useState<{ valid: boolean; events: Event[] } | null>(null);
+  const [files, setFiles] = useState<EvidenceFile[]>([]);
 
   const api = useCallback(async (path: string, init?: RequestInit) => {
     const response = await fetch(`/api${path}`, { ...init, headers: { "Content-Type": "application/json", "x-report-token": token, ...init?.headers } });
@@ -41,7 +44,28 @@ export default function ReportPage() {
     setToken(window.location.hash.slice(1) || (savedReports().find((saved) => saved.id === id)?.token ?? ""));
   }, [id]);
 
-  const refreshChain = useCallback(() => api(`/reports/${id}/verify`).then(setChain), [api, id]);
+  const refreshChain = useCallback(() => Promise.all([
+    api(`/reports/${id}/verify`).then(setChain),
+    api(`/reports/${id}/evidence`).then((body) => setFiles(body.files)),
+  ]), [api, id]);
+
+  async function upload(file: File) {
+    const form = new FormData();
+    form.append("file", file);
+    const response = await fetch(`/api/reports/${id}/evidence`, { method: "POST", headers: { "x-report-token": token }, body: form });
+    if (!response.ok) throw new Error((await response.json().catch(() => null))?.error ?? "That file could not be added.");
+    await refreshChain();
+  }
+
+  async function download(file: EvidenceFile) {
+    const response = await fetch(`/api/reports/${id}/evidence/${file.id}`, { headers: { "x-report-token": token } });
+    if (!response.ok) throw new Error((await response.json().catch(() => null))?.error ?? "That file could not be opened.");
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(await response.blob());
+    link.download = file.name;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
 
   useEffect(() => {
     if (!token) return;
@@ -165,6 +189,26 @@ export default function ReportPage() {
             {report.draft_translated && report.language !== "English" && <><h3>In {report.language}</h3><p className="pre">{report.draft_translated}</p></>}
           </>
         )}
+      </section>
+
+      <section className="panel">
+        <h2>Evidence</h2>
+        {fields.category === "Women/Children Related Crime" ? (
+          <p>Please do not upload files for this kind of report. Use the official portal at <a href="https://cybercrime.gov.in" target="_blank" rel="noreferrer">cybercrime.gov.in</a>, which has a dedicated route.</p>
+        ) : (
+          <>
+            <p className="small-text">Add screenshots or payment proof as JPG, PNG, WebP or PDF, up to 4 MB each. Never upload sexual images, or anything showing an OTP or PIN. Each file gets a fingerprint in your dated record, so any later change shows.</p>
+            <label htmlFor="evidence" className="no-print">Add a file</label>
+            <input id="evidence" className="no-print" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" disabled={busy} onChange={(event) => {
+              const file = event.target.files?.[0];
+              event.target.value = "";
+              if (file) run(() => upload(file), "File added to your record.");
+            }} />
+          </>
+        )}
+        {files.length > 0 && <ul className="events">
+          {files.map((file) => <li key={file.id}><button className="link" disabled={busy} onClick={() => run(() => download(file), "Download started.")}>{file.name}</button> ({Math.ceil(file.size / 1024)} KB, fingerprint {file.sha256.slice(0, 12)})</li>)}
+        </ul>}
       </section>
 
       <section className="panel">

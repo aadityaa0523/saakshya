@@ -34,6 +34,28 @@ CREATE TABLE IF NOT EXISTS law_sections (
 );
 CREATE INDEX IF NOT EXISTS law_sections_search ON law_sections USING gin (search);
 
+CREATE TABLE IF NOT EXISTS evidence (
+  id uuid PRIMARY KEY,
+  report_id uuid NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  mime text NOT NULL,
+  size int NOT NULL,
+  sha256 text NOT NULL,
+  data bytea NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS evidence_report ON evidence (report_id);
+
+-- Holds hashed client addresses only, and rows older than a minute are removed on each check.
+CREATE TABLE IF NOT EXISTS rate_hits (
+  key text NOT NULL,
+  at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS rate_hits_key_at ON rate_hits (key, at);
+
+ALTER TABLE evidence ENABLE ROW LEVEL SECURITY;
+ALTER TABLE rate_hits ENABLE ROW LEVEL SECURITY;
+
 -- Supabase exposes the public schema over its API. With no policies, only the server's own
 -- database connection can reach these tables.
 ALTER TABLE reports ENABLE ROW LEVEL SECURITY;

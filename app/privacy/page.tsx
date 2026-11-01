@@ -9,6 +9,8 @@ export default function Privacy() {
         <li>Your story, with PAN, Aadhaar, card and account numbers masked first.</li>
         <li>Details you give for the report, such as the amount, your bank, the UTR, and the scammer&apos;s number or UPI ID.</li>
         <li>The draft, suggested laws, and a dated record of the steps you mark.</li>
+        <li>Files you add as evidence, with a fingerprint of each one.</li>
+        <li>A scrambled form of your network address for up to a minute, to limit misuse.</li>
       </ul>
       <p>No account is needed. A private link opens your report, and the list on My reports is kept in your own browser.</p>
       <h2>What we refuse</h2>

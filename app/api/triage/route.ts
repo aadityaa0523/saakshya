@@ -1,4 +1,5 @@
 import { runTriage } from "@/lib/agent";
+import { clientOf, overLimit } from "@/lib/evidence";
 import { SecretBlocked } from "@/lib/safety";
 import { query, tools } from "@/lib/server";
 import { createReport } from "@/lib/store";
@@ -11,6 +12,8 @@ export async function POST(request: Request) {
   const story = typeof body?.story === "string" ? body.story.trim() : "";
   const language = typeof body?.language === "string" ? body.language.slice(0, 20) : "en";
   if (story.length < 10 || story.length > 5000) return Response.json({ error: "Please describe what happened in 10 to 5000 characters." }, { status: 400 });
+  // A database failure is left to the save step below, which reports it honestly
+  if (await overLimit(query, clientOf(request), "triage", 8).catch(() => false)) return Response.json({ error: "Too many requests. If money was sent, call 1930 now, then try again in a minute." }, { status: 429 });
 
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
