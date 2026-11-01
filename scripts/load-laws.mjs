@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { PDFParse } from "pdf-parse";
+import { SUPABASE_CA } from "../lib/supabase-ca.mjs";
 
 export const ACTS = [
   { key: "bns", act: "Bharatiya Nyaya Sanhita 2023", file: "bns-2023.pdf", source_url: "https://www.indiacode.nic.in/handle/123456789/20062" },
@@ -32,7 +33,7 @@ export async function readAct({ file }) {
 
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
-  const client = dryRun ? null : new pg.Client({ connectionString: process.env.DATABASE_URL });
+  const client = dryRun ? null : new pg.Client({ connectionString: process.env.DATABASE_URL, ssl: { ca: SUPABASE_CA } });
   await client?.connect();
   try {
     for (const act of ACTS) {
