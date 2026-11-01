@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "../Icons";
 import type { Step, TriageResult } from "@/lib/agent";
 import { LANGUAGES, rememberReport } from "@/lib/client";
+import { recordingToWav } from "@/lib/wav";
 
 const SAMPLES = [
   "A man said he was from my bank and sent a link. I paid ₹12,000 through UPI to him just now.",
@@ -57,8 +58,8 @@ export default function NewReport() {
         setRecording(false);
         setHearing(true);
         const form = new FormData();
-        form.append("file", new File(chunks, "voice.webm", { type: "audio/webm" }));
         try {
+          form.append("file", new File([await recordingToWav(new Blob(chunks))], "voice.wav", { type: "audio/wav" }));
           const response = await fetch("/api/transcribe", { method: "POST", body: form });
           const body = await response.json();
           if (!response.ok) throw new Error(body.error);
@@ -69,6 +70,8 @@ export default function NewReport() {
         setHearing(false);
       };
       media.start();
+      // 16 kHz audio reaches the 4 MB upload limit at about two minutes
+      setTimeout(() => { if (media.state === "recording") media.stop(); }, 110_000);
       recorder.current = media;
       setRecording(true);
     } catch {

@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { MENUS } from "@/lib/site";
 import { Icon } from "./Icons";
+import { Translator } from "./Translator";
 export function SiteHeader() {
   const pathname=usePathname();
   const [menu,setMenu]=useState<string|null>(null);
@@ -24,7 +25,7 @@ export function SiteHeader() {
   },[]);
   function changeSize(value:number){setSize(value);document.documentElement.style.fontSize=`${value}%`;}
   return <>
-    <div className="utility-bar no-print"><div className="site-width utility-inner"><p>Independent initiative <span>•</span> <strong>Not a government website</strong></p><div className="utility-tools"><a href="#content">Skip to main content</a><span className="text-controls" aria-label="Text size"><button aria-label="Decrease text size" disabled={size<=90} onClick={()=>changeSize(size-10)}>A−</button><button aria-label="Reset text size" onClick={()=>changeSize(100)}>A</button><button aria-label="Increase text size" disabled={size>=120} onClick={()=>changeSize(size+10)}>A+</button></span><a className="utility-phone" href="tel:1930">Cyber fraud helpline: <strong>1930</strong></a></div></div></div>
+    <div className="utility-bar no-print"><div className="site-width utility-inner"><p>Independent initiative <span>•</span> <strong>Not a government website</strong></p><div className="utility-tools"><Translator /><a href="#content">Skip to main content</a><span className="text-controls" aria-label="Text size"><button aria-label="Decrease text size" disabled={size<=90} onClick={()=>changeSize(size-10)}>A−</button><button aria-label="Reset text size" onClick={()=>changeSize(100)}>A</button><button aria-label="Increase text size" disabled={size>=120} onClick={()=>changeSize(size+10)}>A+</button></span><a className="utility-phone" href="tel:1930">Cyber fraud helpline: <strong>1930</strong></a></div></div></div>
     <header className="site-header no-print" ref={header}><div className="site-width header-inner">
       <Link href="/" className="brand" aria-label="Saakshya home"><span className="brand-mark"><Icon name="shield"/></span><span><span className="brand-name">Saakshya<span lang="hi">साक्ष्य</span></span><span className="brand-description">CYBERCRIME REPORT ASSISTANCE</span></span></Link>
       <nav id="primary-navigation" className={`primary-nav ${mobile?'is-open':''}`} aria-label="Main navigation"><Link href="/" className="nav-home" aria-current={pathname==='/'?'page':undefined}>Home</Link>

@@ -18,7 +18,7 @@ export default function Privacy() {
       <h2>Who else handles it</h2>
       <ul>
         <li>An AI provider receives the masked story to read it and write your draft.</li>
-        <li>Sarvam AI receives voice notes to turn them into text. We do not store the audio.</li>
+        <li>The AI provider receives voice notes to turn them into text. We do not store the audio. Audio is not masked first, so never say an OTP or PIN.</li>
         <li>If you add a screenshot to your story, the AI provider receives the image to read it. We do not store that image unless you also add it as evidence. It is not masked first, so crop out anything private.</li>
         <li>Razorpay&apos;s public lookup receives an IFSC code, if you give one.</li>
         <li>Twilio and WhatsApp carry your messages, if you use WhatsApp.</li>

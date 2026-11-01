@@ -7,6 +7,7 @@ import { chainIsValid, nextEntry } from "@/lib/chain";
 import { addEvidence, getEvidence, overLimit, sniffType } from "@/lib/evidence";
 import { LlmError } from "@/lib/llm";
 import { sanitize, SecretBlocked, urgencyOf } from "@/lib/safety";
+import { encodeWav } from "@/lib/wav";
 import { appendEvent, createReport, getReport, searchLaws, verifyChain, type Query } from "@/lib/store";
 
 const LAW = { id: "it-66d", act: "IT Act 2000", section: "66D", text: "cheating by personation by using computer resource", source_url: "https://www.indiacode.nic.in/" };
@@ -99,6 +100,18 @@ describe("evidence types", () => {
     expect(sniffType(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]))).toBe("image/jpeg");
     expect(sniffType(new TextEncoder().encode("%PDF-1.7"))).toBe("application/pdf");
     expect(sniffType(new TextEncoder().encode("<script>alert(1)</script>"))).toBeNull();
+  });
+});
+
+describe("voice recording", () => {
+  it("encodes a valid WAV file and limits loud samples", async () => {
+    const view = new DataView(await encodeWav(new Float32Array([0, 1, 2, -2]), 16000).arrayBuffer());
+    const tag = (start: number) => String.fromCharCode(...[0, 1, 2, 3].map((i) => view.getUint8(start + i)));
+    expect([tag(0), tag(8), tag(36)]).toEqual(["RIFF", "WAVE", "data"]);
+    expect(view.byteLength).toBe(52);
+    expect(view.getUint32(24, true)).toBe(16000);
+    expect(view.getInt16(48, true)).toBe(32767);
+    expect(view.getInt16(50, true)).toBe(-32768);
   });
 });
 

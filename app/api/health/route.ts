@@ -7,7 +7,7 @@ export async function GET() {
     checked_at: new Date().toISOString(),
     database,
     llm_configured: Boolean(process.env.LLM_API_KEY),
-    speech_configured: Boolean(process.env.SARVAM_API_KEY),
+    speech_configured: Boolean(process.env.LLM_API_KEY),
     whatsapp_configured: Boolean(process.env.TWILIO_AUTH_TOKEN),
   }, { headers: { "Cache-Control": "no-store" } });
 }

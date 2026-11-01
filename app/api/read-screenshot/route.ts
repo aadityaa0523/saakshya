@@ -28,7 +28,7 @@ export async function POST(request: Request) {
   const mime = sniffType(bytes);
   if (!mime?.startsWith("image/")) return Response.json({ error: "Please choose a JPG, PNG or WebP image." }, { status: 415 });
   try {
-    const { facts } = await askLlm(PROMPT, Reading, `data:${mime};base64,${Buffer.from(bytes).toString("base64")}`);
+    const { facts } = await askLlm(PROMPT, Reading, { type: "image_url", image_url: { url: `data:${mime};base64,${Buffer.from(bytes).toString("base64")}` } });
     sanitize(facts);
     if (!facts.trim()) return Response.json({ error: "We could not find any details in that image. Please type them instead." }, { status: 422 });
     return Response.json({ facts: facts.trim() });
