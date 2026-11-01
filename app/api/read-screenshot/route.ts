@@ -4,7 +4,7 @@ import { askLlm } from "@/lib/llm";
 import { sanitize, SecretBlocked } from "@/lib/safety";
 import { query } from "@/lib/server";
 
-export const maxDuration = 45;
+export const maxDuration = 60;
 
 const Reading = z.object({ facts: z.string().max(1500) });
 const PROMPT =
