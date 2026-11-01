@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { beforeAll, describe, expect, it } from "vitest";
+import { bankRequest, callScript, completeness, contactsFor } from "@/lib/actions";
 import { factCheck, missingFields, priorityOf, ReportEdit, runFollowup, runTriage, type Fields, type Tools } from "@/lib/agent";
 import { chainIsValid, nextEntry } from "@/lib/chain";
 import { addEvidence, getEvidence, overLimit, sniffType } from "@/lib/evidence";
@@ -94,6 +95,25 @@ describe("evidence types", () => {
     expect(sniffType(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]))).toBe("image/jpeg");
     expect(sniffType(new TextEncoder().encode("%PDF-1.7"))).toBe("application/pdf");
     expect(sniffType(new TextEncoder().encode("<script>alert(1)</script>"))).toBeNull();
+  });
+});
+
+describe("victim kit", () => {
+  const fields = { category: "Financial Fraud", amount: 12000, bank_name: "SBI", bank_branch: null, utr: null, ifsc: null, scammer_upi: "scam@ybl", scammer_contact: null, summary: "" } as Fields;
+  it("scores readiness from real details", () => {
+    expect(completeness(fields)).toMatchObject({ done: 3, total: 4, percent: 75 });
+  });
+  it("leaves blanks rather than inventing details", () => {
+    expect(callScript(fields).join(" ")).toContain("₹12,000");
+    expect(callScript(fields).join(" ")).toContain("UTR is ____");
+    expect(bankRequest(fields)).toContain("UTR / transaction ID: ____");
+    expect(bankRequest(fields)).toContain("Sent to: scam@ybl");
+  });
+  it("has no bank request for non-money reports, and always lists the portal", () => {
+    const threat = { ...fields, category: "Extortion & Blackmail" };
+    expect(bankRequest(threat)).toBeNull();
+    expect(contactsFor(threat.category)[0][2]).toBe("https://cybercrime.gov.in");
+    expect(contactsFor("Unknown")).toHaveLength(1);
   });
 });
 

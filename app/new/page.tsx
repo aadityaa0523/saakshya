@@ -27,6 +27,7 @@ export default function NewReport() {
   const [crisis, setCrisis] = useState(false);
   const [recording, setRecording] = useState(false);
   const [hearing, setHearing] = useState(false);
+  const [reading, setReading] = useState(false);
   const recorder = useRef<MediaRecorder | null>(null);
 
   async function toggleRecording() {
@@ -63,6 +64,22 @@ export default function NewReport() {
     } catch {
       setError("We could not use your microphone. Please allow it, or type instead.");
     }
+  }
+
+  async function readScreenshot(file: File) {
+    setReading(true);
+    setError("");
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const response = await fetch("/api/read-screenshot", { method: "POST", body: form });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error ?? "We could not read that image. Please type the details instead.");
+      setStory((current) => [current, body.facts].filter(Boolean).join("\n").slice(0, 5000));
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "We could not read that image. Please type the details instead.");
+    }
+    setReading(false);
   }
 
   async function submit(event: React.FormEvent) {
@@ -128,11 +145,19 @@ export default function NewReport() {
         <textarea id="story" rows={8} maxLength={5000} required minLength={10} value={story} onChange={(event) => setStory(event.target.value)} aria-describedby="story-help" placeholder="Tell us what happened, when it happened, and any details you remember…" />
         <p className="field-help" id="story-help">{story.length.toLocaleString()} / 5,000 characters. Your draft will need your review before you use it.</p>
 
+        <label htmlFor="screenshot">Have a payment screenshot or scam message? (optional)</label>
+        <input id="screenshot" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || reading} onChange={(event) => {
+          const file = event.target.files?.[0];
+          event.target.value = "";
+          if (file) readScreenshot(file);
+        }} />
+        <p className="field-help">{reading ? "Reading your screenshot..." : "We add what it shows to your story for you to check. The image is sent to our AI provider and not saved. Crop out any OTP or PIN first."}</p>
+
         <div className="actions">
           <button type="button" className="button secondary" onClick={toggleRecording} disabled={busy || hearing}>
             <Icon name="mic"/>{recording ? "Stop recording" : hearing ? "Listening back..." : "Speak instead"}
           </button>
-          <button type="submit" className="button" disabled={busy || recording || hearing}>{busy ? "Working..." : "Prepare my report"}<Icon name="arrow"/></button>
+          <button type="submit" className="button" disabled={busy || recording || hearing || reading}>{busy ? "Working..." : "Prepare my report"}<Icon name="arrow"/></button>
         </div>
       </form>
 

@@ -2,6 +2,7 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
+import { bankRequest, callScript, completeness, contactsFor } from "@/lib/actions";
 import { missingFields, type Fields, type LawCandidate } from "@/lib/agent";
 import { forgetReport, rememberReport, savedReports } from "@/lib/client";
 
@@ -93,6 +94,10 @@ export default function ReportPage() {
 
   const { fields } = report;
   const missing = missingFields(fields);
+  const score = completeness(fields);
+  const script = callScript(fields);
+  const bankLetter = bankRequest(fields);
+  const contacts = contactsFor(fields.category);
   const patch = (change: object) => run(async () => {
     const saved = await api(`/reports/${id}`, { method: "PATCH", body: JSON.stringify(change) });
     setReport({ ...report, ...change, fields: saved.fields });
@@ -118,7 +123,30 @@ export default function ReportPage() {
       <section className="panel">
         <h2>What we understood</h2>
         <p>{fields.summary}</p>
-        {missing.length > 0 ? <p><strong>Still needed:</strong> {missing.join(", ")}</p> : <p><strong>All key details are in.</strong></p>}
+        <div className="readiness">
+          <p><strong>Report readiness: {score.done} of {score.total} key details</strong></p>
+          <div className="readiness-bar" role="progressbar" aria-valuenow={score.percent} aria-valuemin={0} aria-valuemax={100} aria-label="Report readiness"><span style={{ width: `${score.percent}%` }} /></div>
+          <ul>{score.items.map((item) => <li key={item.name} className={item.done ? "ok-text" : ""}>{item.done ? "✓" : "○"} {item.name}</li>)}</ul>
+        </div>
+        {missing.length > 0 ? <p><strong>Still needed:</strong> {missing.join(", ")}. Add them below when you can.</p> : <p><strong>All key details are in.</strong></p>}
+      </section>
+
+      <section className="panel no-print">
+        <h2>Your call and bank kit</h2>
+        <h3>What to say when you call 1930</h3>
+        <ol>{script.map((line) => <li key={line}>{line}</li>)}</ol>
+        <div className="actions">
+          <a className="button urgent" href="tel:1930">Call 1930</a>
+          <button className="button secondary" onClick={() => run(() => navigator.clipboard.writeText(script.join("\n")), "Call script copied.")}>Copy script</button>
+        </div>
+        {bankLetter && <>
+          <h3>Request to send your bank</h3>
+          <p className="small-text">Saakshya does not contact your bank. Fill in the blanks and send this yourself, using your bank&apos;s official app, website or the number on your card.</p>
+          <p className="pre letter">{bankLetter}</p>
+          <button className="button secondary" onClick={() => run(() => navigator.clipboard.writeText(bankLetter), "Bank request copied.")}>Copy bank request</button>
+        </>}
+        <h3>Official contacts for this kind of report</h3>
+        <ul className="contact-list">{contacts.map(([name, detail, href]) => <li key={name}><a href={href} {...(href.startsWith("http") ? { target: "_blank", rel: "noreferrer" } : {})}>{name}</a>: {detail}</li>)}</ul>
       </section>
 
       <section className="panel no-print">

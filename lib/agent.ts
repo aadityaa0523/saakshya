@@ -54,12 +54,15 @@ export function priorityOf(urgency: Urgency, fields: Pick<Fields, "category" | "
   return fields.category === "Not Cybercrime" ? "LOW" : "MEDIUM";
 }
 
-export function missingFields(fields: Fields): string[] {
+export function checklistFor(fields: Pick<Fields, "category" | "utr" | "bank_name" | "amount" | "scammer_upi" | "scammer_contact">): [string, unknown][] {
   const money = fields.category === "Financial Fraud" || fields.category === "E-Commerce Scam";
-  const needed: [string, unknown][] = money
+  return money
     ? [["Transaction UTR", fields.utr], ["Your bank", fields.bank_name], ["Amount lost", fields.amount], ["Scammer ID or number", fields.scammer_upi ?? fields.scammer_contact]]
     : [["Scammer ID or number", fields.scammer_upi ?? fields.scammer_contact]];
-  return needed.filter(([, value]) => !value).map(([name]) => name);
+}
+
+export function missingFields(fields: Fields): string[] {
+  return checklistFor(fields).filter(([, value]) => !value).map(([name]) => name);
 }
 
 /** An amount the victim never wrote in digits is dropped, and the tracker asks for it instead. */
