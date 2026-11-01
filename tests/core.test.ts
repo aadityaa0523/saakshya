@@ -5,7 +5,8 @@ import { bankRequest, callScript, completeness, contactsFor } from "@/lib/action
 import { factCheck, missingFields, priorityOf, ReportEdit, runFollowup, runTriage, type Fields, type Tools } from "@/lib/agent";
 import { chainIsValid, nextEntry } from "@/lib/chain";
 import { addEvidence, getEvidence, overLimit, sniffType } from "@/lib/evidence";
-import { LlmError } from "@/lib/llm";
+import { z } from "zod";
+import { askLlm, LlmError } from "@/lib/llm";
 import { sanitize, SecretBlocked, urgencyOf } from "@/lib/safety";
 import { encodeWav } from "@/lib/wav";
 import { appendEvent, createReport, getReport, searchLaws, verifyChain, type Query } from "@/lib/store";
@@ -175,6 +176,53 @@ describe("agent", () => {
     const listing = { ...tools, searchLaws: async (terms: string) => { searched = terms; return tools.searchLaws(terms); }, ask: (async (prompt: string, schema: { parse: (value: unknown) => unknown }) => prompt.startsWith("Extract") ? schema.parse({ ...EXTRACT, search_terms: ["cheating", "personation"] }) : ask(prompt, schema as never)) as Tools["ask"] };
     await runTriage("I sent ₹50,000 through a UPI link", "en", listing, () => {});
     expect(searched).toBe("cheating personation");
+  });
+  it("rewrites a rejected draft, telling the AI what was wrong", async () => {
+    const tools = fakeTools();
+    const prompts: string[] = [];
+    let drafts = 0;
+    const correcting = { ...tools, ask: (async (prompt: string, schema: { parse: (value: unknown) => unknown }) => {
+      if (prompt.startsWith("Extract") || prompt.startsWith("Choose")) return tools.ask(prompt, schema as never);
+      prompts.push(prompt);
+      drafts++;
+      return schema.parse({ complaint_en: drafts === 1 ? "On 12 March I lost Rs 50,000 through a link sent to my phone." : "I lost Rs 50,000 through a UPI link sent to my phone by a fraudster.", complaint_translated: "x" });
+    }) as Tools["ask"] };
+    const steps: string[] = [];
+    const result = await runTriage("I sent ₹50,000 through a UPI link", "en", correcting, (s) => steps.push(s.tool));
+    expect(steps).toContain("self_correct");
+    expect(prompts[1]).toContain("Number not in your details: 12");
+    expect(result.draft).toContain("fraudster");
+    expect(result.draftError).toBeNull();
+  });
+  it("keeps the report when law search and drafting fail", async () => {
+    const tools = fakeTools();
+    const failing = { ...tools, searchLaws: async () => { throw new Error("down"); }, ask: (async (prompt: string, schema: { parse: (value: unknown) => unknown }) => {
+      if (prompt.startsWith("Extract")) return tools.ask(prompt, schema as never);
+      throw new LlmError("down");
+    }) as Tools["ask"] };
+    const result = await runTriage("I sent ₹50,000 through a UPI link", "en", failing, () => {});
+    expect(result.fields.amount).toBe(50000);
+    expect(result.laws).toEqual([]);
+    expect(result.draft).toBeNull();
+    expect(result.draftError).toContain("could not write");
+  });
+  it("moves to the backup model when the main one is out of quota", async () => {
+    const seen: string[] = [];
+    const realFetch = globalThis.fetch;
+    const env = { ...process.env };
+    Object.assign(process.env, { LLM_BASE_URL: "https://ai.test/v1", LLM_MODEL: "main", LLM_FALLBACK_MODEL: "backup", LLM_API_KEY: "k" });
+    globalThis.fetch = (async (_url: string, init: { body: string }) => {
+      const { model } = JSON.parse(init.body);
+      seen.push(model);
+      return model === "main" ? new Response("{}", { status: 429 }) : Response.json({ choices: [{ message: { content: '{"ok":true}' } }] });
+    }) as unknown as typeof fetch;
+    try {
+      expect(await askLlm("hi", z.object({ ok: z.boolean() }))).toEqual({ ok: true });
+      expect(seen).toEqual(["main", "backup"]);
+    } finally {
+      globalThis.fetch = realFetch;
+      process.env = env;
+    }
   });
   it("withholds a draft with an invented number", async () => {
     const result = await runTriage("I sent ₹50,000 through a UPI link", "hi", fakeTools("On 12 March I lost Rs 50,000 through a link sent to my phone."), () => {});

@@ -33,6 +33,7 @@ export default function ReportPage() {
   const [acknowledgement, setAcknowledgement] = useState("");
   const [chain, setChain] = useState<{ valid: boolean; events: Event[] } | null>(null);
   const [files, setFiles] = useState<EvidenceFile[]>([]);
+  const [updateNote, setUpdateNote] = useState("");
 
   const api = useCallback(async (path: string, init?: RequestInit) => {
     const response = await fetch(`/api${path}`, { ...init, headers: { "Content-Type": "application/json", "x-report-token": token, ...init?.headers } });
@@ -85,7 +86,8 @@ export default function ReportPage() {
       await work();
       setNotice(done);
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "That did not work. Please try again.");
+      // A network failure's own message is browser jargon
+      setError(failure instanceof Error && !(failure instanceof TypeError) ? failure.message : "We could not reach Saakshya. Check your connection and try again. If money was sent, call 1930 now.");
     }
     setBusy(false);
   }
@@ -184,10 +186,11 @@ export default function ReportPage() {
           event.preventDefault();
           run(async () => {
             const saved = await api("/followup", { method: "POST", body: JSON.stringify({ id, text: update }) });
-            setReport({ ...report, fields: saved.fields });
+            setReport({ ...report, fields: saved.fields, ...(saved.draft ? { draft: saved.draft, draft_translated: saved.draft_translated } : {}) });
             setUpdate("");
             await refreshChain();
-          }, "Update added.");
+            setUpdateNote(saved.draft_kept ? "Update added. Your edited draft was kept, so add the new details to it or write a fresh one." : saved.draft_refreshed ? "Update added, and your draft was rewritten with the new details." : "Update added. The draft could not be rewritten right now, so use the button below it to try again.");
+          }, "");
         }}>
           <label htmlFor="update">Remembered something? Write it here, for example: UTR is 482910394821, bank is SBI.</label>
           <textarea id="update" rows={2} maxLength={2000} required value={update} onChange={(event) => setUpdate(event.target.value)} />
@@ -210,7 +213,15 @@ export default function ReportPage() {
 
       <section className="panel">
         <h2>Complaint draft</h2>
-        {report.draft === null ? <p>We held this draft back because it did not pass our fact check. Add more detail in an update, or write your own using the details above.</p> : (
+        {updateNote && <p className="field-help" role="status">{updateNote}</p>}
+        {report.draft === null && <p>No draft is ready. Either it did not pass our fact check, or the AI service was unavailable. Your details are saved, so you can try again.</p>}
+        <button className="button secondary no-print" disabled={busy} onClick={() => run(async () => {
+          const saved = await api(`/reports/${id}/redraft`, { method: "POST" });
+          setReport({ ...report, fields: saved.fields, draft: saved.draft, draft_translated: saved.draft_translated });
+          setUpdateNote("");
+          await refreshChain();
+        }, "Draft rewritten and fact-checked.")}>{report.draft === null ? "Try writing the draft again" : "Write a fresh draft"}</button>
+        {report.draft !== null && (
           <>
             <textarea rows={12} aria-label="Complaint draft" key={report.draft} defaultValue={report.draft} onBlur={(event) => { if (event.target.value !== report.draft) patch({ draft: event.target.value }); }} />
             <button className="button secondary no-print" onClick={() => run(() => navigator.clipboard.writeText(report.draft ?? ""), "Copied.")}>Copy draft</button>

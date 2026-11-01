@@ -25,7 +25,7 @@ Report, IFSC lookup, follow-up update, invalid edit refused, wrong link refused,
 
 ## Known limits
 
-- The AI uses a free tier, so heavy use can hit its limit. A failure shows a message to call 1930, and nothing is saved.
+- The AI uses a free tier, so heavy use can hit its limit. A backup model takes over first. If extraction still fails, the app shows a message to call 1930 and keeps the story in the browser. If only law search or drafting fails, the report is still saved and the draft can be retried.
 - Law suggestions come from keyword search and AI choice, and have not had legal review. For example, IT Act 66C was suggested for bank impersonation, which may not fit.
 - WhatsApp uses the Twilio sandbox: it worked with a real phone message, but each tester must join and rejoin every 3 days.
 - Voice transcription passed with a spoken audio file on the live service. Check it with a real microphone in Hindi or Telugu before relying on it.

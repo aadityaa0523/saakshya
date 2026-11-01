@@ -24,7 +24,7 @@ export async function PATCH(request: Request, { params }: Context) {
     if (error instanceof SecretBlocked) return Response.json({ error: error.message }, { status: 422 });
     throw error;
   }
-  const fields = { ...report.fields, ...changes };
+  const fields = { ...report.fields, ...changes, ...(draft === undefined ? {} : { draft_edited: true }) };
   await query("UPDATE reports SET fields = $1, draft = COALESCE($2, draft) WHERE id = $3", [JSON.stringify(fields), draft ?? null, report.id]);
   await appendEvent(query, report.id, { type: "details_edited", changed: Object.keys(edit.data) });
   return Response.json({ fields, missing: missingFields(fields) });

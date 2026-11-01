@@ -22,7 +22,7 @@ const Draft = z.object({ complaint_en: z.string().min(50), complaint_translated:
 
 export type LawCandidate = { id: string; act: string; section: string; text: string; source_url: string };
 export type Transaction = { amount: number; from_bank?: string | null; to?: string | null };
-export type Fields = Identifiers & { category: string; amount: number | null; bank_name: string | null; bank_branch: string | null; summary: string; transactions?: Transaction[]; complainant_name?: string | null; scammer_name?: string | null };
+export type Fields = Identifiers & { category: string; amount: number | null; bank_name: string | null; bank_branch: string | null; summary: string; transactions?: Transaction[]; complainant_name?: string | null; scammer_name?: string | null; draft_edited?: boolean };
 export type Step = { tool: string; status: "ok" | "failed" | "skipped"; detail: string };
 export type Tools = {
   ask: AskLlm;
@@ -120,40 +120,62 @@ export async function runTriage(raw: string, language: string, tools: Tools, emi
     return { urgency, story: text, fields, laws: [], draft: null, draftTranslated: null, draftError: null, priority, missing, question: extracted.question };
   }
 
-  const candidates = await tools.searchLaws(extracted.search_terms);
   const laws: TriageResult["laws"] = [];
-  if (candidates.length) {
-    const chosen = await tools.ask(
-      `Choose up to 4 sections that define an offence matching these facts, and give a one-line reason for each. Skip procedural sections and any section that does not clearly fit; choose none if none fit. Return {"picks":[{"id","reason"}]}. Use only these sections:\n` +
-        `${candidates.map((c) => `${c.id}: ${c.text.slice(0, 700)}`).join("\n\n")}\n${wrapStory(fields.summary)}`,
-      LawPicks,
-    );
-    // Only sections that retrieval returned can be shown, so a made-up citation is dropped here
-    for (const pick of chosen.picks) {
-      const found = candidates.find((c) => c.id === pick.id);
-      if (found) laws.push({ ...found, reason: pick.reason });
+  let lawFailure = "";
+  try {
+    const candidates = await tools.searchLaws(extracted.search_terms);
+    if (candidates.length) {
+      const chosen = await tools.ask(
+        `Choose up to 4 sections that define an offence matching these facts, and give a one-line reason for each. Skip procedural sections and any section that does not clearly fit; choose none if none fit. Return {"picks":[{"id","reason"}]}. Use only these sections:\n` +
+          `${candidates.map((c) => `${c.id}: ${c.text.slice(0, 700)}`).join("\n\n")}\n${wrapStory(fields.summary)}`,
+        LawPicks,
+      );
+      // Only sections that retrieval returned can be shown, so a made-up citation is dropped here
+      for (const pick of chosen.picks) {
+        const found = candidates.find((c) => c.id === pick.id);
+        if (found) laws.push({ ...found, reason: pick.reason });
+      }
+    }
+  } catch {
+    // Law suggestions are optional: losing them must not lose the victim's report
+    lawFailure = "Law search is unavailable right now, so the report continues without it";
+  }
+  emit({ tool: "search_law", status: laws.length ? "ok" : "failed", detail: laws.length ? laws.map((l) => `${l.act} s.${l.section}`).join(", ") : lawFailure || "No matching section found" });
+
+  const written = await writeDraft(text, fields, laws, language, tools.ask, emit);
+  return { urgency, story: text, fields, laws, ...written, priority, missing, question: extracted.question };
+}
+
+/** Writes the complaint, and gives the AI one chance to fix whatever the fact check finds. */
+export async function writeDraft(story: string, fields: Fields, laws: { act: string; section: string }[], language: string, ask: AskLlm, emit: (step: Step) => void) {
+  const allowed = `${story} ${JSON.stringify(fields)} ${laws.map((l) => `${l.section} ${l.act}`).join(" ")}`;
+  let correction = "";
+  let draftError = "";
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const generated = await ask(
+        `Write a complete, factual first-person cybercrime complaint for the victim to review, about 120 to 220 words. Tell events in the order they happened: who contacted the victim and what they claimed, each payment with its bank and receiver, names, numbers and IDs given, and the total lost. If you mention law sections, say they may apply, never that an offence is proven. End by requesting investigation and action on the funds. Promise nothing. Return {"complaint_en": text, "complaint_translated": the same complaint in language ${language}}. ` +
+          `Use only these facts. Write ____ for anything missing. Add no other number or date.${correction}\nFacts: ${JSON.stringify(fields)}\nSections: ${laws.map((l) => `${l.act} s.${l.section}`).join(", ")}\n${wrapStory(story)}`,
+        Draft,
+      );
+      const problems = factCheck(`${generated.complaint_en}\n${generated.complaint_translated}`, allowed);
+      if (!problems.length) {
+        emit({ tool: "fact_check", status: "ok", detail: attempt ? "Corrected draft: every number now traces back to your details" : "Every number traces back to your details" });
+        return { draft: generated.complaint_en, draftTranslated: generated.complaint_translated, draftError: null };
+      }
+      draftError = problems.join("; ");
+      if (attempt === 0) {
+        correction = ` Your last draft was rejected for these problems, so remove them: ${draftError}.`;
+        emit({ tool: "self_correct", status: "failed", detail: `Draft rejected and being rewritten: ${draftError}` });
+      }
+    } catch {
+      // The report is still useful without a draft, and the victim can retry from the report page
+      draftError = "The AI service could not write the draft right now";
+      break;
     }
   }
-  emit({ tool: "search_law", status: laws.length ? "ok" : "failed", detail: laws.length ? laws.map((l) => `${l.act} s.${l.section}`).join(", ") : "No matching section found" });
-
-  const allowed = `${text} ${JSON.stringify(fields)} ${laws.map((l) => `${l.section} ${l.act}`).join(" ")}`;
-  let draft: string | null = null;
-  let draftTranslated: string | null = null;
-  let draftError: string | null = null;
-  const generated = await tools.ask(
-    `Write a complete, factual first-person cybercrime complaint for the victim to review, about 120 to 220 words. Tell events in the order they happened: who contacted the victim and what they claimed, each payment with its bank and receiver, names, numbers and IDs given, and the total lost. If you mention law sections, say they may apply, never that an offence is proven. End by requesting investigation and action on the funds. Promise nothing. Return {"complaint_en": text, "complaint_translated": the same complaint in language ${language}}. ` +
-      `Use only these facts. Write ____ for anything missing. Add no other number or date.\nFacts: ${JSON.stringify(fields)}\nSections: ${laws.map((l) => `${l.act} s.${l.section}`).join(", ")}\n${wrapStory(text)}`,
-    Draft,
-  );
-  const problems = factCheck(`${generated.complaint_en}\n${generated.complaint_translated}`, allowed);
-  if (problems.length) draftError = problems.join("; ");
-  else {
-    draft = generated.complaint_en;
-    draftTranslated = generated.complaint_translated;
-  }
-  emit({ tool: "fact_check", status: draft ? "ok" : "failed", detail: draftError ?? "Every number traces back to your details" });
-
-  return { urgency, story: text, fields, laws, draft, draftTranslated, draftError, priority, missing, question: extracted.question };
+  emit({ tool: "fact_check", status: "failed", detail: draftError });
+  return { draft: null, draftTranslated: null, draftError };
 }
 
 /** What the victim may change by hand. Empty text clears a field; anything malformed is rejected. */

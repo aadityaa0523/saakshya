@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Icon } from "../Icons";
 import type { Step, TriageResult } from "@/lib/agent";
-import { LANGUAGES, rememberReport, takeDraft } from "@/lib/client";
+import { LANGUAGES, rememberReport, saveDraft, takeDraft } from "@/lib/client";
 import { SCAM_TYPES } from "@/lib/scams";
 import { useVoice } from "@/lib/useVoice";
 
@@ -20,6 +20,7 @@ const STAGES: [string, string][] = [
   ["extract_fields", "Understanding what happened"],
   ["lookup_ifsc", "Looking up your bank branch"],
   ["search_law", "Finding laws that may apply"],
+  ["self_correct", "Fact check found a problem, so the draft is being rewritten"],
   ["fact_check", "Drafting and fact-checking your complaint"],
 ];
 
@@ -102,7 +103,9 @@ export default function NewReport() {
         }
       }
     } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "We could not finish this right now. If money was sent, call 1930 now.");
+      // A network failure's own message is browser jargon. The story stays in the box, and survives a refresh.
+      saveDraft(story);
+      setError(failure instanceof Error && !(failure instanceof TypeError) ? failure.message : "We could not reach Saakshya, but your words are still here. Check your connection and try again. If money was sent, call 1930 now.");
     }
     setBusy(false);
   }
@@ -120,7 +123,8 @@ export default function NewReport() {
 
   if (busy) {
     const hasIfsc = steps.some((step) => step.tool === "lookup_ifsc");
-    const current = STAGES.filter(([tool]) => tool !== "lookup_ifsc" || hasIfsc);
+    const corrected = steps.some((step) => step.tool === "self_correct");
+    const current = STAGES.filter(([tool]) => (tool !== "lookup_ifsc" || hasIfsc) && (tool !== "self_correct" || corrected));
     const nextIndex = current.findIndex(([tool]) => !steps.some((step) => step.tool === tool));
     return (
       <section className="narrow processing" role="status" aria-live="polite">
