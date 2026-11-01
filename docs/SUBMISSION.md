@@ -48,7 +48,7 @@ Say that the story is made up.
 3. **The solution:** tell it, check it, take it to the right place.
 4. **Architecture and innovation:** the pipeline above, plus the fact check and hash chain.
 5. **Guardrails:** OTP refusal, masking, honest failures, no filing.
-6. **Evidence it works:** 12 live hard cases: 11 pass and 1 partial, with the limits stated. See `docs/TEST_RESULTS.md`.
+6. **Evidence it works:** 12 live hard cases, all passing after fixes, with one note and the limits stated. See `docs/TEST_RESULTS.md`.
 7. **Roadmap:** legal review, security audit, India-region hosting, more languages, partner pilots.
 
 ## 6. Be ready to explain

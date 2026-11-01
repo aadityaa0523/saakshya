@@ -11,7 +11,7 @@ const RECENT = /just now|minutes? ago|abhi|अभी|ఇప్పుడే/i;
 
 const UTR = /\b(?:utr|rrn|ref(?:erence)?(?:\s*(?:no|number|id))?|transaction\s*id)\b\W{0,5}(?:is\W{0,3})?(\d{12})\b/i;
 const IFSC = /\b([A-Z]{4}0[A-Z0-9]{6})\b/i;
-const UPI = /\b([\w.-]+@[a-z][a-z0-9]+)\b(?!\.)/i;
+const UPI = /\b([\w.-]+@[a-z][a-z0-9]+)\b(?!\.[a-z])/i;
 const PHONE = /(?<!\d)(?:\+?91[ -]?)?([6-9]\d{9})(?!\d)/;
 const MASKS: [RegExp, string][] = [
   [/\b[A-Z]{5}\d{4}[A-Z]\b/gi, "[PAN]"],

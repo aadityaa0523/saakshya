@@ -42,6 +42,10 @@ describe("safety guard", () => {
     expect(identifiers).toEqual({ utr: "482910394821", ifsc: "SBIN0000123", scammer_upi: "scam@ybl", scammer_contact: "9876543210" });
     expect(text).not.toMatch(/482910394821|SBIN|scam@ybl|9876543210/);
   });
+  it("finds a UPI ID at the end of a sentence, but not an email address", () => {
+    expect(sanitize("I paid scam@ybl. Then he called.").identifiers.scammer_upi).toBe("scam@ybl");
+    expect(sanitize("Write to help@example.com now").identifiers.scammer_upi).toBeNull();
+  });
   it("treats an unlabelled 12-digit number as Aadhaar, not a UTR", () => {
     const { text, identifiers } = sanitize("number 482910394821 was used");
     expect(identifiers.utr).toBeNull();

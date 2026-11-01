@@ -11,7 +11,7 @@ Run on 1 Nov 2026 against https://saakshya-eta.vercel.app with made-up stories, 
 | Still on a digital-arrest call | Pass | Marked ongoing, and the report page tells the victim to hang up |
 | Money sent 10 minutes ago | Pass | Marked recent, with a call-1930 alert |
 | Approved payment, investment scam | Pass | BNS 318 suggested and draft prepared |
-| Three payments, two banks | Partial | Draft prepared, but no total amount is recorded, so the victim must add it |
+| Three payments, two banks | Pass | Rechecked after a fix: each payment listed, and plain code added them to the correct ₹6,25,000 total |
 | Amount not stated | Pass | Amount left empty rather than guessed |
 | Sextortion | Pass | BNS 351 and IT Act 67A suggested |
 | Self-harm language | Pass | Stops report steps and shows support contacts first |

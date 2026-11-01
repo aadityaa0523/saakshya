@@ -141,7 +141,7 @@ export async function runTriage(raw: string, language: string, tools: Tools, emi
   let draftTranslated: string | null = null;
   let draftError: string | null = null;
   const generated = await tools.ask(
-    `Write a complete, factual first-person cybercrime complaint for the victim to review, about 120 to 220 words. Tell events in the order they happened: who contacted the victim and what they claimed, each payment with its bank and receiver, names, numbers and IDs given, and the total lost. End by requesting investigation and action on the funds. Promise nothing. Return {"complaint_en": text, "complaint_translated": the same complaint in language ${language}}. ` +
+    `Write a complete, factual first-person cybercrime complaint for the victim to review, about 120 to 220 words. Tell events in the order they happened: who contacted the victim and what they claimed, each payment with its bank and receiver, names, numbers and IDs given, and the total lost. If you mention law sections, say they may apply, never that an offence is proven. End by requesting investigation and action on the funds. Promise nothing. Return {"complaint_en": text, "complaint_translated": the same complaint in language ${language}}. ` +
       `Use only these facts. Write ____ for anything missing. Add no other number or date.\nFacts: ${JSON.stringify(fields)}\nSections: ${laws.map((l) => `${l.act} s.${l.section}`).join(", ")}\n${wrapStory(text)}`,
     Draft,
   );
