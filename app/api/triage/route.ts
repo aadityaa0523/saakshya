@@ -1,0 +1,32 @@
+import { runTriage } from "@/lib/agent";
+import { SecretBlocked } from "@/lib/safety";
+import { query, tools } from "@/lib/server";
+import { createReport } from "@/lib/store";
+
+export const maxDuration = 60;
+
+/** Streams one JSON object per line: agent steps as they happen, then the result or an error. */
+export async function POST(request: Request) {
+  const body = await request.json().catch(() => null);
+  const story = typeof body?.story === "string" ? body.story.trim() : "";
+  const language = typeof body?.language === "string" ? body.language.slice(0, 20) : "en";
+  if (story.length < 10 || story.length > 5000) return Response.json({ error: "Please describe what happened in 10 to 5000 characters." }, { status: 400 });
+
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(controller) {
+      const send = (message: unknown) => controller.enqueue(encoder.encode(JSON.stringify(message) + "\n"));
+      try {
+        const result = await runTriage(story, language, tools, (step) => send({ step }));
+        const { id, token } = await createReport(query, result, language);
+        send({ result, id, token });
+      } catch (error) {
+        const blocked = error instanceof SecretBlocked;
+        if (!blocked) console.error("triage failed", error instanceof Error ? error.name : "unknown");
+        send({ error: blocked ? error.message : "We could not finish this right now, and nothing was saved. If money was sent, call 1930 now, then try again.", blocked });
+      }
+      controller.close();
+    },
+  });
+  return new Response(stream, { headers: { "Content-Type": "application/x-ndjson", "Cache-Control": "no-store" } });
+}

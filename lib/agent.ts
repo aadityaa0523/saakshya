@@ -1,0 +1,153 @@
+import { z } from "zod";
+import type { AskLlm } from "./llm";
+import { wrapStory } from "./llm";
+import { sanitize, urgencyOf, type Identifiers, type Urgency } from "./safety";
+
+export const CATEGORIES = ["Financial Fraud", "Women/Children Related Crime", "Extortion & Blackmail", "Identity Theft", "E-Commerce Scam", "Other Cyber Crime", "Not Cybercrime"] as const;
+
+const Extraction = z.object({
+  category: z.enum(CATEGORIES),
+  amount: z.number().nonnegative().nullable(),
+  bank_name: z.string().max(100).nullable(),
+  summary_en: z.string().max(600),
+  search_terms: z.string().max(200),
+  question: z.string().max(300),
+});
+const LawPicks = z.object({ picks: z.array(z.object({ id: z.string(), reason: z.string().max(300) })).max(4) });
+const Draft = z.object({ complaint_en: z.string().min(50), complaint_translated: z.string() });
+
+export type LawCandidate = { id: string; act: string; section: string; text: string; source_url: string };
+export type Fields = Identifiers & { category: string; amount: number | null; bank_name: string | null; bank_branch: string | null; summary: string };
+export type Step = { tool: string; status: "ok" | "failed" | "skipped"; detail: string };
+export type Tools = {
+  ask: AskLlm;
+  searchLaws: (terms: string) => Promise<LawCandidate[]>;
+  lookupIfsc: (ifsc: string) => Promise<{ bank: string; branch: string } | null>;
+};
+export type TriageResult = {
+  urgency: Urgency;
+  story: string;
+  fields: Fields;
+  laws: (LawCandidate & { reason: string })[];
+  draft: string | null;
+  draftTranslated: string | null;
+  draftError: string | null;
+  priority: "HIGH" | "MEDIUM" | "LOW";
+  missing: string[];
+  question: string;
+};
+
+const PROMISES = /\b(guarantee\w*|will (get|receive) (a |your |the )?(money|refund)|assured refund)\b/i;
+
+/** Every number in a draft must come from the victim's text or computed facts. */
+export function factCheck(draft: string, allowed: string): string[] {
+  const numbers = (text: string) => (text.match(/\d[\d,]*/g) ?? []).map((n) => n.replace(/,/g, ""));
+  const known = new Set(numbers(allowed));
+  const problems = [...new Set(numbers(draft))].filter((n) => !known.has(n)).map((n) => `Number not in your details: ${n}`);
+  if (PROMISES.test(draft)) problems.push("Promises a result");
+  return problems;
+}
+
+export function priorityOf(urgency: Urgency, fields: Pick<Fields, "category" | "amount">): TriageResult["priority"] {
+  if (urgency !== "normal" || fields.amount || fields.category === "Extortion & Blackmail" || fields.category === "Women/Children Related Crime") return "HIGH";
+  return fields.category === "Not Cybercrime" ? "LOW" : "MEDIUM";
+}
+
+export function missingFields(fields: Fields): string[] {
+  const money = fields.category === "Financial Fraud" || fields.category === "E-Commerce Scam";
+  const needed: [string, unknown][] = money
+    ? [["Transaction UTR", fields.utr], ["Your bank", fields.bank_name], ["Amount lost", fields.amount], ["Scammer ID or number", fields.scammer_upi ?? fields.scammer_contact]]
+    : [["Scammer ID or number", fields.scammer_upi ?? fields.scammer_contact]];
+  return needed.filter(([, value]) => !value).map(([name]) => name);
+}
+
+/** An amount the victim never wrote in digits is dropped, and the tracker asks for it instead. */
+function supportedAmount(amount: number | null, story: string): number | null {
+  if (amount === null) return null;
+  const written = (story.match(/\d[\d,]*/g) ?? []).map((n) => Number(n.replace(/,/g, "")));
+  return written.includes(amount) ? amount : null;
+}
+
+export async function runTriage(raw: string, language: string, tools: Tools, emit: (step: Step) => void): Promise<TriageResult> {
+  const { text, identifiers } = sanitize(raw);
+  const urgency = urgencyOf(raw);
+  emit({ tool: "safety_guard", status: "ok", detail: `Sensitive numbers masked. Urgency: ${urgency}` });
+
+  const base: Fields = { ...identifiers, category: "Other Cyber Crime", amount: null, bank_name: null, bank_branch: null, summary: "" };
+  if (urgency === "crisis") {
+    emit({ tool: "crisis_path", status: "ok", detail: "Stopped report steps to show support contacts first" });
+    return { urgency, story: text, fields: base, laws: [], draft: null, draftTranslated: null, draftError: null, priority: "HIGH", missing: [], question: "" };
+  }
+
+  const extracted = await tools.ask(
+    `Extract from this cybercrime story. Return {"category": one of ${JSON.stringify(CATEGORIES)}, "amount": rupees lost as a number or null, ` +
+      `"bank_name": the victim's bank or null, "summary_en": two factual English sentences, "search_terms": English legal keywords for finding applicable law, ` +
+      `"question": the single most useful question to ask next, in language ${language}}. Use null when not stated. Do not guess.\n${wrapStory(text)}`,
+    Extraction,
+  );
+  const fields: Fields = { ...base, category: extracted.category, amount: supportedAmount(extracted.amount, text), bank_name: extracted.bank_name, summary: extracted.summary_en };
+  emit({ tool: "extract_fields", status: "ok", detail: `Category: ${fields.category}` });
+
+  if (fields.ifsc) {
+    const branch = await tools.lookupIfsc(fields.ifsc);
+    if (branch) {
+      fields.bank_name ??= branch.bank;
+      fields.bank_branch = branch.branch;
+    }
+    emit({ tool: "lookup_ifsc", status: branch ? "ok" : "failed", detail: branch ? `${branch.bank}, ${branch.branch}` : "IFSC not found or service unreachable" });
+  }
+
+  const missing = missingFields(fields);
+  const priority = priorityOf(urgency, fields);
+  if (fields.category === "Not Cybercrime") {
+    emit({ tool: "scope_check", status: "skipped", detail: "This does not look like cybercrime, so no complaint was drafted" });
+    return { urgency, story: text, fields, laws: [], draft: null, draftTranslated: null, draftError: null, priority, missing, question: extracted.question };
+  }
+
+  const candidates = await tools.searchLaws(extracted.search_terms);
+  const laws: TriageResult["laws"] = [];
+  if (candidates.length) {
+    const chosen = await tools.ask(
+      `Choose up to 4 sections that may apply and give a one-line reason for each. Return {"picks":[{"id","reason"}]}. Use only these sections:\n` +
+        `${candidates.map((c) => `${c.id}: ${c.text.slice(0, 700)}`).join("\n\n")}\n${wrapStory(fields.summary)}`,
+      LawPicks,
+    );
+    // Only sections that retrieval returned can be shown, so a made-up citation is dropped here
+    for (const pick of chosen.picks) {
+      const found = candidates.find((c) => c.id === pick.id);
+      if (found) laws.push({ ...found, reason: pick.reason });
+    }
+  }
+  emit({ tool: "search_law", status: laws.length ? "ok" : "failed", detail: laws.length ? laws.map((l) => `${l.act} s.${l.section}`).join(", ") : "No matching section found" });
+
+  const allowed = `${text} ${JSON.stringify(fields)} ${laws.map((l) => `${l.section} ${l.act}`).join(" ")}`;
+  let draft: string | null = null;
+  let draftTranslated: string | null = null;
+  let draftError: string | null = null;
+  const generated = await tools.ask(
+    `Write a factual first-person cybercrime complaint for the victim to review. Return {"complaint_en": text, "complaint_translated": the same complaint in language ${language}}. ` +
+      `Use only these facts. Write ____ for anything missing. Add no other number or date.\nFacts: ${JSON.stringify(fields)}\nSections: ${laws.map((l) => `${l.act} s.${l.section}`).join(", ")}\n${wrapStory(text)}`,
+    Draft,
+  );
+  const problems = factCheck(`${generated.complaint_en}\n${generated.complaint_translated}`, allowed);
+  if (problems.length) draftError = problems.join("; ");
+  else {
+    draft = generated.complaint_en;
+    draftTranslated = generated.complaint_translated;
+  }
+  emit({ tool: "fact_check", status: draft ? "ok" : "failed", detail: draftError ?? "Every number traces back to your details" });
+
+  return { urgency, story: text, fields, laws, draft, draftTranslated, draftError, priority, missing, question: extracted.question };
+}
+
+/** Merges a later message into a report. Only values actually found replace existing ones. */
+export async function runFollowup(raw: string, fields: Fields, ask: AskLlm): Promise<{ fields: Fields; missing: string[]; story: string }> {
+  const { text, identifiers } = sanitize(raw);
+  const known = Object.fromEntries(Object.entries(identifiers).filter(([, value]) => value));
+  const update = await ask(
+    `From this update return {"amount": rupees or null, "bank_name": the victim's bank or null}. Do not guess.\n${wrapStory(text)}`,
+    z.object({ amount: z.number().nonnegative().nullable(), bank_name: z.string().max(100).nullable() }),
+  );
+  const merged: Fields = { ...fields, ...known, amount: supportedAmount(update.amount, text) ?? fields.amount, bank_name: update.bank_name ?? fields.bank_name };
+  return { fields: merged, missing: missingFields(merged), story: text };
+}
