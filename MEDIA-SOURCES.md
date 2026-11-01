@@ -7,3 +7,6 @@ Stock photographs are illustrative and do not identify real victims, officials o
 - `hero-citizen.jpg`: Yan Krukau, https://www.pexels.com/photo/woman-using-laptop-while-holding-cellphone-8837758/
 - `citizen-laptop.jpg`: Ketut Subiyanto, https://www.pexels.com/photo/focused-young-indian-woman-typing-laptop-at-home-4307970/
 - `senior-online.jpg`: Siddharth Vyas, https://www.pexels.com/photo/profile-of-a-senior-woman-wearing-a-floral-blouse-using-laptop-19485860/
+- `shopping-phone.jpg`: https://images.unsplash.com/photo-1713947506242-8fcae733d158
+- `distress.jpg`: https://images.unsplash.com/photo-1493836512294-502baa1986e2
+- `hacked-lock.jpg`: https://images.unsplash.com/photo-1614064641938-3bbee52942c7

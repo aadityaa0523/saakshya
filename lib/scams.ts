@@ -1,12 +1,12 @@
 export type ScamType = { title: string; detail: string; group: string; tip: string };
 
-export const COMPLAINT_GROUPS: [string, string][] = [
-  ["Money fraud", "UPI, bank, card and investment scams"],
-  ["Threats and blackmail", "Digital arrest, loan apps and sextortion"],
-  ["Identity misuse", "Fake profiles, PAN or Aadhaar misuse, SIM fraud"],
-  ["Shopping and jobs", "Fake shops, delivery, job and task scams"],
-  ["Harassment and abuse", "Stalking, bullying and online abuse"],
-  ["Hacking and data", "Hacked accounts, ransomware and stolen data"],
+export const COMPLAINT_GROUPS: [string, string, string][] = [
+  ["Money fraud", "UPI, bank, card and investment scams", "/media/evidence-phone.jpg"],
+  ["Threats and blackmail", "Digital arrest, loan apps and sextortion", "/media/phone-call.jpg"],
+  ["Identity misuse", "Fake profiles, PAN or Aadhaar misuse, SIM fraud", "/media/citizen-laptop.jpg"],
+  ["Shopping and jobs", "Fake shops, delivery, job and task scams", "/media/shopping-phone.jpg"],
+  ["Harassment and abuse", "Stalking, bullying and online abuse", "/media/distress.jpg"],
+  ["Hacking and data", "Hacked accounts, ransomware and stolen data", "/media/hacked-lock.jpg"],
 ];
 
 const MONEY_TIP = "The amount, date and time, your bank, the UTR, and the receiver's UPI ID or account.";
