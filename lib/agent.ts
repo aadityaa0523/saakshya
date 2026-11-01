@@ -9,6 +9,8 @@ const Extraction = z.object({
   category: z.enum(CATEGORIES),
   amount: z.number().nonnegative().nullable(),
   bank_name: z.string().max(100).nullable(),
+  complainant_name: z.string().max(100).nullable().optional(),
+  scammer_name: z.string().max(120).nullable().optional(),
   transactions: z.array(z.object({ amount: z.number().nonnegative(), from_bank: z.string().max(100).nullable().optional(), to: z.string().max(120).nullable().optional() })).max(20).nullable().optional(),
   summary_en: z.string().max(600),
   // Models differ on whether they send keywords as text or as a list
@@ -20,7 +22,7 @@ const Draft = z.object({ complaint_en: z.string().min(50), complaint_translated:
 
 export type LawCandidate = { id: string; act: string; section: string; text: string; source_url: string };
 export type Transaction = { amount: number; from_bank?: string | null; to?: string | null };
-export type Fields = Identifiers & { category: string; amount: number | null; bank_name: string | null; bank_branch: string | null; summary: string; transactions?: Transaction[] };
+export type Fields = Identifiers & { category: string; amount: number | null; bank_name: string | null; bank_branch: string | null; summary: string; transactions?: Transaction[]; complainant_name?: string | null; scammer_name?: string | null };
 export type Step = { tool: string; status: "ok" | "failed" | "skipped"; detail: string };
 export type Tools = {
   ask: AskLlm;
@@ -92,14 +94,14 @@ export async function runTriage(raw: string, language: string, tools: Tools, emi
 
   const extracted = await tools.ask(
     `Extract from this cybercrime story. Return {"category": one of ${JSON.stringify(CATEGORIES)}, "amount": rupees lost as a number or null, ` +
-      `"bank_name": the victim's bank or null, "transactions": a list with one {"amount","from_bank","to"} for each separate payment stated, or [], "summary_en": two factual English sentences, "search_terms": English criminal-offence keywords for finding applicable law, such as cheating, personation, identity theft, extortion, criminal intimidation, obscene material,` +
+      `"bank_name": the victim's bank or null, "complainant_name": the victim's own name if stated or null, "scammer_name": the name or role the scammer used if stated or null, "transactions": a list with one {"amount","from_bank","to"} for each separate payment stated, or [], "summary_en": two factual English sentences, "search_terms": English criminal-offence keywords for finding applicable law, such as cheating, personation, identity theft, extortion, criminal intimidation, obscene material,` +
       `"question": the single most useful question to ask next, in language ${language}}. Use null when not stated. Do not guess.\n${wrapStory(text)}`,
     Extraction,
   );
   const transactions = supportedTransactions(extracted.transactions ?? [], text);
   // Plain code adds up the total, and only when every payment appears in the victim's own words
   const amount = transactions.length > 1 ? transactions.reduce((total, payment) => total + payment.amount, 0) : supportedAmount(extracted.amount, text);
-  const fields: Fields = { ...base, category: extracted.category, amount, bank_name: extracted.bank_name, summary: extracted.summary_en, transactions };
+  const fields: Fields = { ...base, category: extracted.category, amount, bank_name: extracted.bank_name, summary: extracted.summary_en, transactions, complainant_name: extracted.complainant_name ?? null, scammer_name: extracted.scammer_name ?? null };
   emit({ tool: "extract_fields", status: "ok", detail: `Category: ${fields.category}` });
 
   if (fields.ifsc) {
@@ -164,6 +166,9 @@ export const ReportEdit = z.strictObject({
   scammer_upi: z.string().trim().max(100).nullable().optional(),
   scammer_contact: z.string().trim().max(100).nullable().optional(),
   draft: z.string().max(10000).optional(),
+  category: z.enum(CATEGORIES).optional(),
+  complainant_name: z.string().trim().max(100).nullable().optional(),
+  scammer_name: z.string().trim().max(120).nullable().optional(),
 });
 
 /** Merges a later message into a report. Only values actually found replace existing ones. */

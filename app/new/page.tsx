@@ -37,6 +37,7 @@ export default function NewReport() {
   const [recording, setRecording] = useState(false);
   const [hearing, setHearing] = useState(false);
   const [reading, setReading] = useState(false);
+  const [attached, setAttached] = useState<File | null>(null);
   const recorder = useRef<MediaRecorder | null>(null);
 
   async function toggleRecording() {
@@ -115,7 +116,15 @@ export default function NewReport() {
           if (message.result) {
             rememberReport({ id: message.id!, token: message.token!, category: message.result.fields.category, priority: message.result.priority, savedAt: new Date().toISOString() });
             if (message.result.urgency === "crisis") setCrisis(true);
-            else router.push(`/report/${message.id}#${message.token}`);
+            else {
+              if (attached) {
+                const form = new FormData();
+                form.append("file", attached);
+                // The report is already safe, so a failed upload can be retried from the report page
+                await fetch(`/api/reports/${message.id}/evidence`, { method: "POST", headers: { "x-report-token": message.token! }, body: form }).catch(() => {});
+              }
+              router.push(`/report/${message.id}#${message.token}`);
+            }
           }
         }
       }
@@ -169,23 +178,35 @@ export default function NewReport() {
           {LANGUAGES.map(([name, native]) => <option key={name} value={name}>{native} ({name})</option>)}
         </select>
 
-        <label htmlFor="story">Your story</label>
-        <textarea id="story" rows={8} maxLength={5000} required minLength={10} value={story} onChange={(event) => setStory(event.target.value)} aria-describedby="story-help" placeholder="Tell us what happened, when it happened, and any details you remember…" />
-        <p className="field-help" id="story-help">{story.length.toLocaleString()} / 5,000 characters. Your draft will need your review before you use it.</p>
+        <div className="intake-grid">
+          <div className="intake-voice">
+            <p className="intake-label">Voice note</p>
+            <button type="button" className={`mic-button ${recording ? "is-recording" : ""}`} onClick={toggleRecording} disabled={busy || hearing} aria-label={recording ? "Stop recording" : "Start recording"}><Icon name="mic"/></button>
+            <p className="field-help" aria-live="polite">{recording ? "Recording. Tap to stop." : hearing ? "Listening back..." : "Tap the mic and speak. You can check the words afterwards."}</p>
+          </div>
+          <div className="intake-side">
+            <label htmlFor="story">Type what happened</label>
+            <textarea id="story" rows={7} maxLength={5000} required minLength={10} value={story} onChange={(event) => setStory(event.target.value)} aria-describedby="story-help" placeholder="Tell us what happened, when it happened, and any details you remember…" />
+            <p className="field-help" id="story-help">{story.length.toLocaleString()} / 5,000 characters. You will review everything before using it.</p>
 
-        <label htmlFor="screenshot">Have a payment screenshot or scam message? (optional)</label>
-        <input id="screenshot" type="file" accept="image/jpeg,image/png,image/webp" disabled={busy || reading} onChange={(event) => {
-          const file = event.target.files?.[0];
-          event.target.value = "";
-          if (file) readScreenshot(file);
-        }} />
-        <p className="field-help">{reading ? "Reading your screenshot..." : "We add what it shows to your story for you to check. The image is sent to our AI provider and not saved. Crop out any OTP or PIN first."}</p>
+            <label htmlFor="screenshot">Attach a payment screenshot or scam message (optional)</label>
+            {attached ? (
+              <p className="attached-file"><span>✓ {attached.name}</span><button type="button" className="link" onClick={() => setAttached(null)}>Remove</button></p>
+            ) : (
+              <input id="screenshot" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" disabled={busy || reading} onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                if (!file) return;
+                setAttached(file);
+                if (file.type !== "application/pdf") readScreenshot(file);
+              }} />
+            )}
+            <p className="field-help">{reading ? "Reading your screenshot..." : "Images are read and their details added to your story for you to check. The file then joins your evidence. Crop out any OTP or PIN first, and never attach sexual images."}</p>
+          </div>
+        </div>
 
         <div className="actions">
-          <button type="button" className="button secondary" onClick={toggleRecording} disabled={busy || hearing}>
-            <Icon name="mic"/>{recording ? "Stop recording" : hearing ? "Listening back..." : "Speak instead"}
-          </button>
-          <button type="submit" className="button" disabled={busy || recording || hearing || reading}>{busy ? "Working..." : "Prepare my report"}<Icon name="arrow"/></button>
+          <button type="submit" className="button wide" disabled={busy || recording || hearing || reading}>Prepare my report<Icon name="arrow"/></button>
         </div>
       </form>
 

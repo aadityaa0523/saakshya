@@ -45,7 +45,7 @@ export function bankRequest(fields: Fields): string | null {
     "",
     "Please (1) contact the receiving bank to request a hold on these funds, (2) block further debits as needed, and (3) confirm the action taken and your complaint reference in writing.",
     "",
-    "Name: ____",
+    `Name: ${orBlank(fields.complainant_name)}`,
     "Account number: ____",
     "Registered mobile: ____",
   ].join("\n");

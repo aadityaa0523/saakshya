@@ -3,7 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { bankRequest, callScript, completeness, contactsFor } from "@/lib/actions";
-import { missingFields, type Fields, type LawCandidate } from "@/lib/agent";
+import { CATEGORIES, missingFields, type Fields, type LawCandidate } from "@/lib/agent";
 import { forgetReport, rememberReport, savedReports } from "@/lib/client";
 
 type Report = {
@@ -13,7 +13,7 @@ type Report = {
 type Event = { at: string; event: { type: string; acknowledgement?: string | null }; hash: string };
 
 const EDITABLE: [keyof Fields, string][] = [
-  ["utr", "UTR (12 digits)"], ["bank_name", "Your bank"], ["ifsc", "IFSC"], ["scammer_upi", "Scammer's UPI ID"], ["scammer_contact", "Scammer's number or profile"],
+  ["complainant_name", "Your name"], ["scammer_name", "Name the scammer used"], ["utr", "UTR (12 digits)"], ["bank_name", "Your bank"], ["ifsc", "IFSC"], ["scammer_upi", "Scammer's UPI ID"], ["scammer_contact", "Scammer's number or profile"],
 ];
 const ACTIONS: [string, string][] = [
   ["called_1930", "I called 1930"], ["told_bank", "I told my bank"], ["filed_portal", "I filed on cybercrime.gov.in"], ["filed_police", "I went to the police"],
@@ -108,17 +108,35 @@ export default function ReportPage() {
     <div className="report">
       <div className="report-head">
         <div>
-          <h1>{fields.category}</h1>
-          <p>{report.priority} priority{fields.amount ? `, ₹${fields.amount.toLocaleString("en-IN")} reported lost` : ""}</p>
+          <h1>Your report is ready</h1>
+          <p>Prepared from what you told us. Check it, correct anything, then take the steps yourself.</p>
         </div>
-        <button className="button secondary no-print" onClick={() => window.print()}>Save as PDF</button>
+        <div className="actions no-print">
+          <button className="button secondary" onClick={() => router.push("/new")}>New report</button>
+          <button className="button secondary" onClick={() => window.print()}>Save as PDF</button>
+        </div>
       </div>
+
+      <div className={`readiness-banner ${score.percent === 100 ? "is-complete" : ""}`}>
+        <strong>{score.percent}% complete</strong>
+        <span>{score.percent === 100 ? "All key details are in. You can use this with 1930, your bank and the police." : `Still needed: ${missing.join(", ")}. You can act now and add these later.`}</span>
+      </div>
+
+      <div className="case-facts">
+        <div><small>Case reference</small><strong>{`SK-${id.slice(0, 8).toUpperCase()}`}</strong></div>
+        <div><small>Category</small><strong>{fields.category}</strong></div>
+        <div><small>Reported lost</small><strong>{fields.amount ? `₹${fields.amount.toLocaleString("en-IN")}` : "Not stated"}</strong></div>
+        <div className={report.priority === "HIGH" ? "is-urgent" : ""}><small>Priority</small><strong>{report.urgency === "normal" ? `${report.priority[0]}${report.priority.slice(1).toLowerCase()}` : "Critical: act now"}</strong></div>
+      </div>
+      <p className="small-text">The reference is for your own records. It is not a police or government complaint number.</p>
 
       {report.urgency === "ongoing" && <p className="panel urgent-panel" role="alert"><strong>If you are still on a call with them, hang up now.</strong> Police do not arrest anyone over a video call or ask you to pay to clear your name.</p>}
       {report.urgency === "recent" && <p className="panel urgent-panel" role="alert"><strong>Call 1930 now.</strong> The sooner it is reported, the better the chance of stopping the money. You can finish this page afterwards.</p>}
       {error && <p className="panel error no-print" role="alert">{error}</p>}
       {notice && <p className="panel notice no-print" role="status">{notice}</p>}
 
+      <div className="report-grid">
+      <div className="report-main">
       <section className="panel">
         <h2>What we understood</h2>
         <p>{fields.summary}</p>
@@ -138,58 +156,22 @@ export default function ReportPage() {
         {missing.length > 0 ? <p><strong>Still needed:</strong> {missing.join(", ")}. Add them below when you can.</p> : <p><strong>All key details are in.</strong></p>}
       </section>
 
-      <section className="panel no-print">
-        <h2>Your call and bank kit</h2>
-        <h3>What to say when you call 1930</h3>
-        <ol>{script.map((line) => <li key={line}>{line}</li>)}</ol>
-        <div className="actions">
-          <a className="button urgent" href="tel:1930">Call 1930</a>
-          <button className="button secondary" onClick={() => run(() => navigator.clipboard.writeText(script.join("\n")), "Call script copied.")}>Copy script</button>
-        </div>
-        {bankLetter && <>
-          <h3>Request to send your bank</h3>
-          <p className="small-text">Saakshya does not contact your bank. Fill in the blanks and send this yourself, using your bank&apos;s official app, website or the number on your card.</p>
-          <p className="pre letter">{bankLetter}</p>
-          <div className="actions">
-            <a className="button" href={`mailto:?subject=${encodeURIComponent("Urgent report of a fraudulent transaction")}&body=${encodeURIComponent(bankLetter)}`}>Open as email</a>
-            <button className="button secondary" onClick={() => run(() => navigator.clipboard.writeText(bankLetter), "Bank request copied.")}>Copy bank request</button>
-          </div>
-          <p className="small-text">The email opens in your own app, so you choose your bank&apos;s address and send it. Nothing is sent by Saakshya.</p>
-        </>}
-        <h3>Official contacts for this kind of report</h3>
-        <ul className="contact-list">{contacts.map(([name, detail, href]) => <li key={name}><a href={href} {...(href.startsWith("http") ? { target: "_blank", rel: "noreferrer" } : {})}>{name}</a>: {detail}</li>)}</ul>
-      </section>
-
-      <section className="panel no-print">
-        <h2>Your progress</h2>
-        <p className="small-text">Only you can take these steps. Mark each one when you have really done it, and the time is recorded.</p>
-        <ol className="tracker">
-          <li className="tracker-done"><span aria-hidden="true">✓</span><div><strong>Report prepared</strong><small>{new Date(report.created_at).toLocaleString("en-IN")}</small></div></li>
-          {ACTIONS.map(([action, label]) => {
-            const entry = chain?.events.find((item) => item.event.type === action);
-            return (
-              <li key={action} className={entry ? "tracker-done" : ""}>
-                <span aria-hidden="true">{entry ? "✓" : ""}</span>
-                <div>
-                  {entry ? <strong>{label}</strong> : <button className="link" disabled={busy} onClick={() => run(async () => {
-                    await api(`/reports/${id}/actions`, { method: "POST", body: JSON.stringify({ action, acknowledgement }) });
-                    setAcknowledgement("");
-                    await refreshChain();
-                  }, "Recorded with today's date and time.")}>Mark done: {label}</button>}
-                  {entry && <small>{new Date(entry.at).toLocaleString("en-IN")}{entry.event.acknowledgement ? `, acknowledgement ${entry.event.acknowledgement}` : ""}</small>}
-                </div>
-              </li>
-            );
-          })}
-        </ol>
-        <label htmlFor="ack">Acknowledgement number, if you were given one (recorded with the next step you mark)</label>
-        <input id="ack" maxLength={40} value={acknowledgement} onChange={(event) => setAcknowledgement(event.target.value)} />
-        <p><a href="tel:1930">Call 1930</a> · <a href="https://cybercrime.gov.in" target="_blank" rel="noreferrer">Open cybercrime.gov.in</a></p>
-      </section>
-
       <section className="panel">
-        <h2>Details</h2>
+        <h2>Complaint details</h2>
         <div className="field-grid">
+          <div>
+            <label htmlFor="category">Crime category</label>
+            <select id="category" value={fields.category} disabled={busy} onChange={(event) => patch({ category: event.target.value })}>
+              {CATEGORIES.map((category) => <option key={category} value={category}>{category}</option>)}
+            </select>
+          </div>
+          <div key={`amount-${fields.amount}`}>
+            <label htmlFor="amount">Amount lost (₹)</label>
+            <input id="amount" type="number" min={0} defaultValue={fields.amount ?? ""} onBlur={(event) => {
+              const value = event.target.value === "" ? null : Number(event.target.value);
+              if (value !== fields.amount) patch({ amount: value });
+            }} />
+          </div>
           {EDITABLE.map(([key, label]) => (
             <div key={`${key}-${String(fields[key])}`}>
               <label htmlFor={key}>{label}</label>
@@ -264,6 +246,60 @@ export default function ReportPage() {
           {chain?.events.map((entry) => <li key={entry.hash}>{new Date(entry.at).toLocaleString("en-IN")}: {entry.event.type.replace(/_/g, " ")}{entry.event.acknowledgement ? ` (acknowledgement ${entry.event.acknowledgement})` : ""}</li>)}
         </ul>
       </section>
+
+      </div>
+      <aside className="report-aside">
+      <section className="panel no-print">
+        <h2>Your call and bank kit</h2>
+        <h3>What to say when you call 1930</h3>
+        <ol>{script.map((line) => <li key={line}>{line}</li>)}</ol>
+        <div className="actions">
+          <a className="button urgent" href="tel:1930">Call 1930</a>
+          <button className="button secondary" onClick={() => run(() => navigator.clipboard.writeText(script.join("\n")), "Call script copied.")}>Copy script</button>
+        </div>
+        {bankLetter && <>
+          <h3>Request to send your bank</h3>
+          <p className="small-text">Saakshya does not contact your bank. Fill in the blanks and send this yourself, using your bank&apos;s official app, website or the number on your card.</p>
+          <p className="pre letter">{bankLetter}</p>
+          <div className="actions">
+            <a className="button" href={`mailto:?subject=${encodeURIComponent("Urgent report of a fraudulent transaction")}&body=${encodeURIComponent(bankLetter)}`}>Open as email</a>
+            <button className="button secondary" onClick={() => run(() => navigator.clipboard.writeText(bankLetter), "Bank request copied.")}>Copy bank request</button>
+          </div>
+          <p className="small-text">The email opens in your own app, so you choose your bank&apos;s address and send it. Nothing is sent by Saakshya.</p>
+        </>}
+        <h3>Official contacts for this kind of report</h3>
+        <ul className="contact-list">{contacts.map(([name, detail, href]) => <li key={name}><a href={href} {...(href.startsWith("http") ? { target: "_blank", rel: "noreferrer" } : {})}>{name}</a>: {detail}</li>)}</ul>
+      </section>
+
+      <section className="panel no-print">
+        <h2>Your progress</h2>
+        <p className="small-text">Only you can take these steps. Mark each one when you have really done it, and the time is recorded.</p>
+        <ol className="tracker">
+          <li className="tracker-done"><span aria-hidden="true">✓</span><div><strong>Report prepared</strong><small>{new Date(report.created_at).toLocaleString("en-IN")}</small></div></li>
+          {ACTIONS.map(([action, label]) => {
+            const entry = chain?.events.find((item) => item.event.type === action);
+            return (
+              <li key={action} className={entry ? "tracker-done" : ""}>
+                <span aria-hidden="true">{entry ? "✓" : ""}</span>
+                <div>
+                  {entry ? <strong>{label}</strong> : <button className="link" disabled={busy} onClick={() => run(async () => {
+                    await api(`/reports/${id}/actions`, { method: "POST", body: JSON.stringify({ action, acknowledgement }) });
+                    setAcknowledgement("");
+                    await refreshChain();
+                  }, "Recorded with today's date and time.")}>Mark done: {label}</button>}
+                  {entry && <small>{new Date(entry.at).toLocaleString("en-IN")}{entry.event.acknowledgement ? `, acknowledgement ${entry.event.acknowledgement}` : ""}</small>}
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+        <label htmlFor="ack">Acknowledgement number, if you were given one (recorded with the next step you mark)</label>
+        <input id="ack" maxLength={40} value={acknowledgement} onChange={(event) => setAcknowledgement(event.target.value)} />
+        <p><a href="tel:1930">Call 1930</a> · <a href="https://cybercrime.gov.in" target="_blank" rel="noreferrer">Open cybercrime.gov.in</a></p>
+      </section>
+
+      </aside>
+      </div>
 
       <button className="link danger no-print" disabled={busy} onClick={() => {
         if (!window.confirm("Delete this report permanently?")) return;
