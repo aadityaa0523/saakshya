@@ -18,6 +18,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <body>
         <a className="skip-link" href="#content">Skip to content</a>
+        <p className="identity-strip no-print">Saakshya is an independent project, not a government website. <a href="https://cybercrime.gov.in" target="_blank" rel="noreferrer">Go to the official portal</a></p>
         <a className="alert-bar no-print" href="tel:1930">Money sent? Call <strong>1930</strong> now, before anything else.</a>
         <header className="site-header no-print">
           <div className="header-inner">

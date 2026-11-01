@@ -4,7 +4,7 @@
   --ink: #1b2422;
   --muted: #55615e;
   --line: #d9dcd5;
-  --brand: #0f4c4a;
+  --brand: #12355b;
   --brand-ink: #ffffff;
   --urgent: #b3261e;
   --urgent-soft: #fdecea;
@@ -32,6 +32,10 @@ main > section { margin-top: 48px; }
 .pre { white-space: pre-wrap; }
 
 .alert-bar { display: block; padding: 8px 16px; text-align: center; background: var(--urgent); color: var(--bg); text-decoration: none; }
+.identity-strip { margin: 0; padding: 6px 16px; background: #0c2340; color: #fff; font-size: .85rem; text-align: center; }
+.identity-strip a { color: #fff; }
+.site-header { border-top: 3px solid var(--brand); }
+h1, .prose h2, #how h2 { font-family: Georgia, "Noto Serif", "Nirmala UI", serif; letter-spacing: 0; }
 .skip-link { position: absolute; left: -999px; }
 .skip-link:focus { left: 8px; top: 8px; z-index: 30; padding: 8px 12px; background: var(--surface); }
 .site-header { position: sticky; top: 0; z-index: 20; background: var(--surface); border-bottom: 1px solid var(--line); }
@@ -46,11 +50,11 @@ main > section { margin-top: 48px; }
 .brand { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-weight: 700; font-size: 1.25rem; color: var(--brand); text-decoration: none; }
 .brand-mark { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 6px; background: var(--brand); color: var(--brand-ink); }
 
-.site-footer { margin-top: 48px; padding: 40px 16px 24px; background: #101a19; color: #c4cecb; font-size: .92rem; }
+.site-footer { margin-top: 48px; padding: 40px 16px 24px; background: #0c2340; color: #c9d4e0; font-size: .92rem; }
 .site-footer a { color: #e9efed; text-decoration: none; }
 .site-footer a:hover { text-decoration: underline; }
 .site-footer .brand { color: #fff; }
-.site-footer .brand-mark { background: #6fd0c8; color: #0b1f1e; }
+.site-footer .brand-mark { background: #fff; color: #0c2340; }
 .footer-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 32px 24px; max-width: 1088px; margin: 0 auto; }
 .footer-columns h2 { margin: 0 0 12px; font-size: .78rem; letter-spacing: .08em; text-transform: uppercase; color: #9fb0ac; }
 .footer-columns ul { margin: 0; padding: 0; list-style: none; }
