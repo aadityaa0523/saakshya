@@ -9,6 +9,7 @@ const Extraction = z.object({
   category: z.enum(CATEGORIES),
   amount: z.number().nonnegative().nullable(),
   bank_name: z.string().max(100).nullable(),
+  transactions: z.array(z.object({ amount: z.number().nonnegative(), from_bank: z.string().max(100).nullable().optional(), to: z.string().max(120).nullable().optional() })).max(20).nullable().optional(),
   summary_en: z.string().max(600),
   // Models differ on whether they send keywords as text or as a list
   search_terms: z.union([z.string(), z.array(z.string())]).transform((terms) => [terms].flat().join(" ").slice(0, 200)),
@@ -18,7 +19,8 @@ const LawPicks = z.object({ picks: z.array(z.object({ id: z.string(), reason: z.
 const Draft = z.object({ complaint_en: z.string().min(50), complaint_translated: z.string() });
 
 export type LawCandidate = { id: string; act: string; section: string; text: string; source_url: string };
-export type Fields = Identifiers & { category: string; amount: number | null; bank_name: string | null; bank_branch: string | null; summary: string };
+export type Transaction = { amount: number; from_bank?: string | null; to?: string | null };
+export type Fields = Identifiers & { category: string; amount: number | null; bank_name: string | null; bank_branch: string | null; summary: string; transactions?: Transaction[] };
 export type Step = { tool: string; status: "ok" | "failed" | "skipped"; detail: string };
 export type Tools = {
   ask: AskLlm;
@@ -72,6 +74,11 @@ function supportedAmount(amount: number | null, story: string): number | null {
   return written.includes(amount) ? amount : null;
 }
 
+/** Keeps the list only if every payment was written in digits by the victim; a partial list would give a wrong total. */
+function supportedTransactions(payments: Transaction[], story: string): Transaction[] {
+  return payments.every((payment) => supportedAmount(payment.amount, story) !== null) ? payments : [];
+}
+
 export async function runTriage(raw: string, language: string, tools: Tools, emit: (step: Step) => void): Promise<TriageResult> {
   const { text, identifiers } = sanitize(raw);
   const urgency = urgencyOf(raw);
@@ -85,11 +92,14 @@ export async function runTriage(raw: string, language: string, tools: Tools, emi
 
   const extracted = await tools.ask(
     `Extract from this cybercrime story. Return {"category": one of ${JSON.stringify(CATEGORIES)}, "amount": rupees lost as a number or null, ` +
-      `"bank_name": the victim's bank or null, "summary_en": two factual English sentences, "search_terms": English criminal-offence keywords for finding applicable law, such as cheating, personation, identity theft, extortion, criminal intimidation, obscene material,` +
+      `"bank_name": the victim's bank or null, "transactions": a list with one {"amount","from_bank","to"} for each separate payment stated, or [], "summary_en": two factual English sentences, "search_terms": English criminal-offence keywords for finding applicable law, such as cheating, personation, identity theft, extortion, criminal intimidation, obscene material,` +
       `"question": the single most useful question to ask next, in language ${language}}. Use null when not stated. Do not guess.\n${wrapStory(text)}`,
     Extraction,
   );
-  const fields: Fields = { ...base, category: extracted.category, amount: supportedAmount(extracted.amount, text), bank_name: extracted.bank_name, summary: extracted.summary_en };
+  const transactions = supportedTransactions(extracted.transactions ?? [], text);
+  // Plain code adds up the total, and only when every payment appears in the victim's own words
+  const amount = transactions.length > 1 ? transactions.reduce((total, payment) => total + payment.amount, 0) : supportedAmount(extracted.amount, text);
+  const fields: Fields = { ...base, category: extracted.category, amount, bank_name: extracted.bank_name, summary: extracted.summary_en, transactions };
   emit({ tool: "extract_fields", status: "ok", detail: `Category: ${fields.category}` });
 
   if (fields.ifsc) {
@@ -129,7 +139,7 @@ export async function runTriage(raw: string, language: string, tools: Tools, emi
   let draftTranslated: string | null = null;
   let draftError: string | null = null;
   const generated = await tools.ask(
-    `Write a factual first-person cybercrime complaint for the victim to review. Return {"complaint_en": text, "complaint_translated": the same complaint in language ${language}}. ` +
+    `Write a complete, factual first-person cybercrime complaint for the victim to review, about 120 to 220 words. Tell events in the order they happened: who contacted the victim and what they claimed, each payment with its bank and receiver, names, numbers and IDs given, and the total lost. End by requesting investigation and action on the funds. Promise nothing. Return {"complaint_en": text, "complaint_translated": the same complaint in language ${language}}. ` +
       `Use only these facts. Write ____ for anything missing. Add no other number or date.\nFacts: ${JSON.stringify(fields)}\nSections: ${laws.map((l) => `${l.act} s.${l.section}`).join(", ")}\n${wrapStory(text)}`,
     Draft,
   );

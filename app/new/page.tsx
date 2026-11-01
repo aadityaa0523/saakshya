@@ -12,6 +12,15 @@ const SAMPLES = [
   "A loan app is sending my photos to my contacts and demanding more money.",
 ];
 
+// Each tick comes from a real step reported by the server, not a timer
+const STAGES: [string, string][] = [
+  ["safety_guard", "Protecting your private details"],
+  ["extract_fields", "Understanding what happened"],
+  ["lookup_ifsc", "Looking up your bank branch"],
+  ["search_law", "Finding laws that may apply"],
+  ["fact_check", "Drafting and fact-checking your complaint"],
+];
+
 export default function NewReport() {
   const router = useRouter();
   const [story, setStory] = useState("");
@@ -87,6 +96,7 @@ export default function NewReport() {
     setBusy(true);
     setError("");
     setSteps([]);
+    window.scrollTo(0, 0);
     try {
       const response = await fetch("/api/triage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ story, language }) });
       if (!response.ok) throw new Error((await response.json()).error);
@@ -122,6 +132,24 @@ export default function NewReport() {
         <p>Losing money or being threatened can feel impossible, but you do not have to face this alone. Please talk to someone now.</p>
         <p><a className="button urgent" href="tel:14416">Call Tele-MANAS: 14416</a></p>
         <p>If you are in immediate danger, call 112. The report can wait.</p>
+      </section>
+    );
+  }
+
+  if (busy) {
+    const hasIfsc = steps.some((step) => step.tool === "lookup_ifsc");
+    const current = STAGES.filter(([tool]) => tool !== "lookup_ifsc" || hasIfsc);
+    const nextIndex = current.findIndex(([tool]) => !steps.some((step) => step.tool === tool));
+    return (
+      <section className="narrow processing" role="status" aria-live="polite">
+        <h1>Reading your report</h1>
+        <p className="lead">This usually takes a few seconds. If money was sent, you can <a href="tel:1930">call 1930</a> while you wait.</p>
+        <ol className="stage-list">
+          {current.map(([tool, label], index) => {
+            const step = steps.find((candidate) => candidate.tool === tool);
+            return <li key={tool} className={step ? step.status : index === nextIndex ? "active" : "pending"}><span aria-hidden="true">{step ? (step.status === "ok" ? "✓" : "!") : ""}</span><div><strong>{label}</strong>{step && <small>{step.detail}</small>}</div></li>;
+          })}
+        </ol>
       </section>
     );
   }

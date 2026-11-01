@@ -103,7 +103,6 @@ export default function ReportPage() {
     setReport({ ...report, ...change, fields: saved.fields });
     await refreshChain();
   }, "Saved.");
-  const done = new Set(chain?.events.map((entry) => entry.event.type));
 
   return (
     <div className="report">
@@ -123,6 +122,14 @@ export default function ReportPage() {
       <section className="panel">
         <h2>What we understood</h2>
         <p>{fields.summary}</p>
+        {(fields.transactions?.length ?? 0) > 1 && (
+          <table className="payments">
+            <caption>Payments you described</caption>
+            <thead><tr><th scope="col">Amount</th><th scope="col">From</th><th scope="col">To</th></tr></thead>
+            <tbody>{fields.transactions!.map((payment, index) => <tr key={index}><td>₹{payment.amount.toLocaleString("en-IN")}</td><td>{payment.from_bank ?? "Not stated"}</td><td>{payment.to ?? "Not stated"}</td></tr>)}</tbody>
+            <tfoot><tr><th scope="row">Total: ₹{fields.amount?.toLocaleString("en-IN")}</th><td colSpan={2}>Added up from your own figures. Please check it.</td></tr></tfoot>
+          </table>
+        )}
         <div className="readiness">
           <p><strong>Report readiness: {score.done} of {score.total} key details</strong></p>
           <div className="readiness-bar" role="progressbar" aria-valuenow={score.percent} aria-valuemin={0} aria-valuemax={100} aria-label="Report readiness"><span style={{ width: `${score.percent}%` }} /></div>
@@ -143,26 +150,37 @@ export default function ReportPage() {
           <h3>Request to send your bank</h3>
           <p className="small-text">Saakshya does not contact your bank. Fill in the blanks and send this yourself, using your bank&apos;s official app, website or the number on your card.</p>
           <p className="pre letter">{bankLetter}</p>
-          <button className="button secondary" onClick={() => run(() => navigator.clipboard.writeText(bankLetter), "Bank request copied.")}>Copy bank request</button>
+          <div className="actions">
+            <a className="button" href={`mailto:?subject=${encodeURIComponent("Urgent report of a fraudulent transaction")}&body=${encodeURIComponent(bankLetter)}`}>Open as email</a>
+            <button className="button secondary" onClick={() => run(() => navigator.clipboard.writeText(bankLetter), "Bank request copied.")}>Copy bank request</button>
+          </div>
+          <p className="small-text">The email opens in your own app, so you choose your bank&apos;s address and send it. Nothing is sent by Saakshya.</p>
         </>}
         <h3>Official contacts for this kind of report</h3>
         <ul className="contact-list">{contacts.map(([name, detail, href]) => <li key={name}><a href={href} {...(href.startsWith("http") ? { target: "_blank", rel: "noreferrer" } : {})}>{name}</a>: {detail}</li>)}</ul>
       </section>
 
       <section className="panel no-print">
-        <h2>Do this next</h2>
-        <ol className="checklist">
-          {ACTIONS.map(([action, label]) => (
-            <li key={action}>
-              <button className="link" disabled={busy || done.has(action)} onClick={() => run(async () => {
-                await api(`/reports/${id}/actions`, { method: "POST", body: JSON.stringify({ action, acknowledgement }) });
-                setAcknowledgement("");
-                await refreshChain();
-              }, "Recorded with today's date and time.")}>
-                {done.has(action) ? "Done: " : "Mark done: "}{label}
-              </button>
-            </li>
-          ))}
+        <h2>Your progress</h2>
+        <p className="small-text">Only you can take these steps. Mark each one when you have really done it, and the time is recorded.</p>
+        <ol className="tracker">
+          <li className="tracker-done"><span aria-hidden="true">✓</span><div><strong>Report prepared</strong><small>{new Date(report.created_at).toLocaleString("en-IN")}</small></div></li>
+          {ACTIONS.map(([action, label]) => {
+            const entry = chain?.events.find((item) => item.event.type === action);
+            return (
+              <li key={action} className={entry ? "tracker-done" : ""}>
+                <span aria-hidden="true">{entry ? "✓" : ""}</span>
+                <div>
+                  {entry ? <strong>{label}</strong> : <button className="link" disabled={busy} onClick={() => run(async () => {
+                    await api(`/reports/${id}/actions`, { method: "POST", body: JSON.stringify({ action, acknowledgement }) });
+                    setAcknowledgement("");
+                    await refreshChain();
+                  }, "Recorded with today's date and time.")}>Mark done: {label}</button>}
+                  {entry && <small>{new Date(entry.at).toLocaleString("en-IN")}{entry.event.acknowledgement ? `, acknowledgement ${entry.event.acknowledgement}` : ""}</small>}
+                </div>
+              </li>
+            );
+          })}
         </ol>
         <label htmlFor="ack">Acknowledgement number, if you were given one (recorded with the next step you mark)</label>
         <input id="ack" maxLength={40} value={acknowledgement} onChange={(event) => setAcknowledgement(event.target.value)} />

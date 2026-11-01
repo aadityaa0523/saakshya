@@ -135,6 +135,22 @@ describe("agent", () => {
     expect(result.draft).toContain("50,000");
     expect(result.fields.bank_branch).toBe("Hyderabad");
   });
+  const withExtract = (extra: object) => {
+    const tools = fakeTools("I paid several amounts through UPI to a fraudster and I request action on this.");
+    return { ...tools, ask: (async (prompt: string, schema: { parse: (value: unknown) => unknown }) => prompt.startsWith("Extract") ? schema.parse({ ...EXTRACT, ...extra }) : tools.ask(prompt, schema as never)) as Tools["ask"] };
+  };
+  it("adds up separate payments in plain code", async () => {
+    const tools = withExtract({ amount: 999, transactions: [{ amount: 200000, from_bank: "HDFC" }, { amount: 350000, from_bank: "ICICI" }, { amount: 75000 }] });
+    const result = await runTriage("I paid ₹2,00,000 from HDFC, ₹3,50,000 from ICICI and ₹75,000 by UPI", "en", tools, () => {});
+    expect(result.fields.amount).toBe(625000);
+    expect(result.fields.transactions).toHaveLength(3);
+  });
+  it("refuses a total when any payment was not in the story", async () => {
+    const tools = withExtract({ amount: null, transactions: [{ amount: 1000 }, { amount: 7777 }] });
+    const result = await runTriage("I paid ₹1,000 and then some more by UPI", "en", tools, () => {});
+    expect(result.fields.amount).toBeNull();
+    expect(result.fields.transactions).toEqual([]);
+  });
   it("accepts search terms sent as a list", async () => {
     const tools = fakeTools();
     let searched = "";
