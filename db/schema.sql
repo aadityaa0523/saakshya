@@ -30,10 +30,7 @@ CREATE TABLE IF NOT EXISTS law_sections (
   section text NOT NULL,
   text text NOT NULL,
   source_url text NOT NULL,
-  -- A match in the section's title counts for far more than one in its body
-  search tsvector GENERATED ALWAYS AS (
-    setweight(to_tsvector('english', coalesce(substring(text from '^[^—–]*'), '')), 'A') || setweight(to_tsvector('english', text), 'D')
-  ) STORED
+  search tsvector GENERATED ALWAYS AS (to_tsvector('english', text)) STORED
 );
 CREATE INDEX IF NOT EXISTS law_sections_search ON law_sections USING gin (search);
 
