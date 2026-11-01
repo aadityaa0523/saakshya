@@ -10,7 +10,8 @@ const Extraction = z.object({
   amount: z.number().nonnegative().nullable(),
   bank_name: z.string().max(100).nullable(),
   summary_en: z.string().max(600),
-  search_terms: z.string().max(200),
+  // Models differ on whether they send keywords as text or as a list
+  search_terms: z.union([z.string(), z.array(z.string())]).transform((terms) => [terms].flat().join(" ").slice(0, 200)),
   question: z.string().max(300),
 });
 const LawPicks = z.object({ picks: z.array(z.object({ id: z.string(), reason: z.string().max(300) })).max(4) });

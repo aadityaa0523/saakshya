@@ -115,6 +115,14 @@ describe("agent", () => {
     expect(result.draft).toContain("50,000");
     expect(result.fields.bank_branch).toBe("Hyderabad");
   });
+  it("accepts search terms sent as a list", async () => {
+    const tools = fakeTools();
+    let searched = "";
+    const ask = tools.ask;
+    const listing = { ...tools, searchLaws: async (terms: string) => { searched = terms; return tools.searchLaws(terms); }, ask: (async (prompt: string, schema: { parse: (value: unknown) => unknown }) => prompt.startsWith("Extract") ? schema.parse({ ...EXTRACT, search_terms: ["cheating", "personation"] }) : ask(prompt, schema as never)) as Tools["ask"] };
+    await runTriage("I sent ₹50,000 through a UPI link", "en", listing, () => {});
+    expect(searched).toBe("cheating personation");
+  });
   it("withholds a draft with an invented number", async () => {
     const result = await runTriage("I sent ₹50,000 through a UPI link", "hi", fakeTools("On 12 March I lost Rs 50,000 through a link sent to my phone."), () => {});
     expect(result.draft).toBeNull();
