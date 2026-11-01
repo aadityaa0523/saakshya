@@ -1,112 +1,35 @@
 import Image from "next/image";
 import Link from "next/link";
 import { PostCards } from "./PostCards";
-import { photo } from "@/lib/blog";
-import { query } from "@/lib/server";
-import { OFFICIAL } from "@/lib/site";
+import { CampaignBanner } from "./CampaignBanner";
+import { Icon } from "./Icons";
+import { LANGUAGES } from "@/lib/client";
 
-export const dynamic = "force-dynamic";
-
-const STEPS = [
-  ["Tell it your way", "Speak or type in your language. Never share an OTP or PIN here. Saakshya refuses them."],
-  ["Check what it found", "Watch each step as it runs, then correct any detail. Every law it suggests shows the official wording."],
-  ["Take the next step yourself", "Use your draft with 1930, your bank and the police, and keep a dated record of what you did."],
+const services=[
+ {title:"Financial fraud",detail:"UPI, bank transfers, card & payment scams",image:"/media/evidence-phone.jpg",alt:"A person reviewing messages on a mobile phone",category:"Financial fraud"},
+ {title:"Threats & blackmail",detail:"Extortion, loan apps & digital-arrest threats",image:"/media/phone-call.jpg",alt:"A person speaking on a phone",category:"Threats & blackmail"},
+ {title:"Identity & account misuse",detail:"Fake profiles, impersonation & stolen details",image:"/media/citizen-laptop.jpg",alt:"A woman using her laptop at home",category:"Identity misuse"},
 ];
-
-const CASES = [
-  ["Money fraud", "UPI, bank, OTP or card", "1556742521-9713bf272865"],
-  ["Threats or blackmail", "Loan apps, sextortion", "1493836512294-502baa1986e2"],
-  ["Identity misuse", "PAN, Aadhaar, fake profiles", "1614064641938-3bbee52942c7"],
-  ["Shopping scams", "Fake shops and delivery", "1713947506242-8fcae733d158"],
-  ["Harassment", "Stalking and online abuse", "1776797391265-01a0490d4c99"],
-  ["Something else", "Hacking or stolen data", "1614064548016-0b5c13ca2c85"],
+const resources=[
+ ["Cybercrime portal","File an official complaint","https://cybercrime.gov.in/"],
+ ["I4C","Cyber crime coordination centre","https://i4c.mha.gov.in/"],
+ ["Sanchar Saathi","Report fraud calls and SIMs","https://sancharsaathi.gov.in/"],
+ ["RBI complaints","If your bank does not resolve it","https://cms.rbi.org.in/"],
+ ["Consumer helpline","Shopping and delivery problems","https://consumerhelpline.gov.in/"],
 ];
-
-/** Real counts only. If the database is unavailable the row is hidden, never filled with placeholders. */
-async function liveStats() {
-  try {
-    const { rows } = await query("SELECT (SELECT count(*)::int FROM reports) AS reports, (SELECT count(*)::int FROM law_sections) AS laws");
-    return rows[0] as { reports: number; laws: number };
-  } catch {
-    return null;
-  }
-}
-
-export default async function Home() {
-  const stats = await liveStats();
-  return (
-    <>
-      <section className="hero">
-        <div>
-          <p className="eyebrow">Cybercrime report help</p>
-          <h1>Something went wrong online. Start here.</h1>
-          <p className="lead">Tell us what happened. Saakshya turns it into a clear complaint draft, finds the details still missing, and shows who to contact first.</p>
-          <div className="actions"><Link href="/new" className="button">Start a report</Link></div>
-        </div>
-        <div className="hero-visual">
-          <Image src={photo("1689848693914-7ba25d9f3334", 1200)} alt="A woman at a computer talking on her phone" width={1200} height={800} unoptimized priority />
-          <aside className="hero-card">
-            <p className="eyebrow">Is money gone right now?</p>
-            <h2>Call before you do anything else</h2>
-            <a href="tel:1930" className="hero-number">1930</a>
-            <p>National cyber fraud helpline. You can finish your report after the call.</p>
-          </aside>
-        </div>
-      </section>
-
-      {stats && (
-        <section className="stats" aria-label="Live counts">
-          <div><strong>{stats.reports.toLocaleString("en-IN")}</strong><span>Reports prepared here</span></div>
-          <div><strong>{stats.laws.toLocaleString("en-IN")}</strong><span>Law sections searched</span></div>
-          <div><strong>15</strong><span>Languages for your draft</span></div>
-        </section>
-      )}
-
-      <section id="how">
-        <p className="eyebrow">How it works</p>
-        <h2>From what happened to what to do next</h2>
-        <ol className="steps">
-          {STEPS.map(([title, text]) => <li key={title}><h3>{title}</h3><p>{text}</p></li>)}
-        </ol>
-      </section>
-
-      <section>
-        <p className="eyebrow">Choose what happened</p>
-        <h2>What you can report</h2>
-        <div className="case-grid">
-          {CASES.map(([title, text, image]) => (
-            <Link key={title} href="/new" className="photo-card">
-              <Image src={photo(image, 600)} alt="" width={600} height={340} unoptimized />
-              <div><strong>{title}</strong><span>{text}</span></div>
-            </Link>
-          ))}
-        </div>
-      </section>
-
-      <section className="note">
-        <p className="eyebrow">Stay safe</p>
-        <h2>What Saakshya will not do</h2>
-        <ul>
-          <li>Ask for your OTP, PIN or password. Fake recovery agents do. Anyone who asks is not helping you.</li>
-          <li>Promise your money back.</li>
-          <li>File anything for you. You stay in control of every report.</li>
-        </ul>
-      </section>
-
-      <section>
-        <p className="eyebrow">Guides</p>
-        <h2>Stay safe and act quickly</h2>
-        <PostCards />
-      </section>
-
-      <section>
-        <p className="eyebrow">Official services</p>
-        <h2>Where official reports are made</h2>
-        <p className="lead">These are run by others. Saakshya is not part of them.</p>
-        <div className="official-grid">
-          {OFFICIAL.map(([name, text, url]) => <a key={name} href={url} target="_blank" rel="noreferrer" className="case"><strong>{name} ↗</strong><span>{text}</span></a>)}
-        </div>
-      </section>
-    </>
-  );
+export default function Home(){
+ return <div className="portal-home">
+  <section className="portal-hero" aria-labelledby="hero-title"><div className="portal-hero-copy"><p className="hero-label"><Icon name="shield"/> Cybercrime assistance, in your language</p><h1 id="hero-title">Your complaint.<br/>In your words.</h1><p>Speak or type what happened. Saakshya helps you prepare a clear complaint draft and find the right reporting channels.</p><Link href="/new" className="button hero-button"><Icon name="file"/> Prepare a complaint draft <Icon name="arrow"/></Link><a href="https://cybercrime.gov.in" target="_blank" rel="noreferrer" className="hero-official">or go directly to the official cybercrime portal <Icon name="external"/></a><span className="hero-footnote">You review the draft. You submit the complaint.</span></div><div className="portal-hero-photo"><Image src="/media/hero-citizen.jpg" alt="A woman using a phone beside her laptop — illustrative stock photograph" fill priority sizes="(max-width:700px) 100vw, 50vw"/><aside className="hero-emergency"><span><Icon name="phone"/> LOST MONEY TO FRAUD?</span><h2>Act now.<br/>Call <a href="tel:1930">1930</a>.</h2><p>National cyber fraud helpline.<br/>Make the call before preparing your draft.</p><a href="tel:1930" className="emergency-action">Call the helpline <Icon name="arrow"/></a></aside></div></section>
+  <div className="portal-features"><div className="portal-container"><div><strong>{LANGUAGES.length}</strong><span>Languages for your draft</span></div><div><strong>Voice + text</strong><span>Explain it your way</span></div><div><strong>Step by step</strong><span>From details to a complaint draft</span></div><div><strong>You stay in control</strong><span>Nothing is filed on your behalf</span></div></div></div>
+  <div className="portal-container">
+    <div className="citizen-advisory"><span>BE ALERT</span><p>Being threatened with “digital arrest”? Learn the warning signs and what to do.</p><Link href="/blog/digital-arrest-scam">Read advisory <Icon name="arrow"/></Link></div>
+    <section className="campaign-section"><div className="portal-section-title"><h2>Cyber awareness</h2><a href="https://i4c.mha.gov.in/" target="_blank" rel="noreferrer">Explore I4C resources <Icon name="external"/></a></div><CampaignBanner/></section>
+    <section className="service-section"><div className="portal-section-title"><h2>What happened?</h2><Link href="/new">Start a report <Icon name="arrow"/></Link></div><p className="section-intro">Choose the closest match. We’ll help you put the details together.</p><div className="photo-services">{services.map(s=><Link key={s.title} href={`/new?category=${encodeURIComponent(s.category)}`} className="photo-service"><Image src={s.image} alt={s.alt} fill sizes="(max-width:700px) 100vw, 33vw"/><div><h3>{s.title}</h3><p>{s.detail}</p></div><Icon name="arrow"/></Link>)}</div><div className="more-services"><span>Also need help with:</span>{["Online shopping scams","Online harassment","Something else"].map(c=><Link href={`/new?category=${encodeURIComponent(c)}`} key={c}>{c} <span>›</span></Link>)}</div></section>
+    <section className="prepare-section" id="how"><div className="prepare-photo"><Image src="/media/senior-online.jpg" alt="An older woman using her laptop at home — illustrative stock photograph" fill sizes="(max-width:700px) 100vw, 45vw"/><div><span>HELP THAT STARTS WITH YOU</span><h2>No legal jargon.<br/>Just tell your story.</h2></div></div><div className="prepare-content"><p className="eyebrow">HOW SAAKSHYA WORKS</p><h2>Prepare your complaint,<br/> one step at a time.</h2><ol><li><span>1</span><div><h3>Tell us what happened</h3><p>Use voice or text. Choose a language for your draft and share the details you remember.</p></div></li><li><span>2</span><div><h3>Check the details</h3><p>Review your draft, correct mistakes, and see which information is still missing.</p></div></li><li><span>3</span><div><h3>Take it to the right place</h3><p>Submit the reviewed complaint yourself through the official portal, your bank, or the police.</p></div></li></ol><Link href="/new" className="button">Get started <Icon name="arrow"/></Link></div></section>
+    <section className="before-section"><div><p className="eyebrow">BEFORE YOU BEGIN</p><h2>A few details make<br/> a clearer report.</h2><p>Keep the information you have ready. You can still start if some details are missing.</p><Link href="/blog/what-to-keep-as-evidence" className="text-link">Read the evidence guide <Icon name="arrow"/></Link></div><ul><li><Icon name="check"/><div><strong>When it happened</strong><span>The date, time, and sequence of events.</span></div></li><li><Icon name="check"/><div><strong>Transaction details, if money was sent</strong><span>The amount, bank, and transaction or UTR reference.</span></div></li><li><Icon name="check"/><div><strong>Messages, numbers, and links</strong><span>Save screenshots, profile links, and call records.</span></div></li><li className="sensitive-warning"><Icon name="lock"/><div><strong>Never share an OTP, PIN, CVV, or password</strong><span>Saakshya does not need these.</span></div></li></ul></section>
+    <section className="portal-guides"><div className="portal-section-title"><h2>Guides & scam awareness</h2><Link href="/blog">View all guides <Icon name="arrow"/></Link></div><PostCards limit={3}/></section>
+    <section className="portal-faq"><div className="portal-section-title"><h2>Frequently asked questions</h2><Link href="/faqs">View all FAQs <Icon name="arrow"/></Link></div><div className="faq-grid"><details><summary>Is Saakshya an official government service?</summary><p>No. It is an independent project, not affiliated with the Government of India, any police agency, or any bank.</p></details><details><summary>Does this file my complaint?</summary><p>No. We help you prepare a draft. You check it and submit your complaint through <a href="https://cybercrime.gov.in" target="_blank" rel="noreferrer">cybercrime.gov.in</a> or the police.</p></details><details><summary>Can I prepare a draft in my language?</summary><p>Choose from {LANGUAGES.length} draft languages on the preparation page. The website interface is currently in English.</p></details><details><summary>Can Saakshya recover my money?</summary><p>No service can guarantee recovery. If money was sent, contact 1930 and your bank promptly.</p></details></div></section>
+  </div>
+  <section className="resource-strip"><div className="portal-container"><div className="resource-heading"><h2>Official resources</h2><p>Useful external websites. These organisations are not partners of Saakshya.</p></div><div className="resource-logos">{resources.map(([name,detail,href])=><a key={name} href={href} target="_blank" rel="noreferrer" aria-label={`${name} — external website`}><strong>{name}</strong><span>{detail}<Icon name="external"/></span></a>)}</div></div></section>
+ </div>;
 }

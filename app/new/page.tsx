@@ -1,7 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
+import { Icon } from "../Icons";
 import type { Step, TriageResult } from "@/lib/agent";
 import { LANGUAGES, rememberReport } from "@/lib/client";
 
@@ -13,6 +15,11 @@ const SAMPLES = [
 export default function NewReport() {
   const router = useRouter();
   const [story, setStory] = useState("");
+  const [category, setCategory] = useState("");
+  useEffect(() => {
+    const selected = new URLSearchParams(window.location.search).get("category") ?? "";
+    if (["Financial fraud", "Threats & blackmail", "Identity misuse", "Online shopping scams", "Online harassment", "Something else"].includes(selected)) setCategory(selected);
+  }, []);
   const [language, setLanguage] = useState("English");
   const [steps, setSteps] = useState<Step[]>([]);
   const [busy, setBusy] = useState(false);
@@ -104,23 +111,28 @@ export default function NewReport() {
 
   return (
     <section className="narrow">
+      <nav className="breadcrumb" aria-label="Breadcrumb"><Link href="/">Home</Link><span aria-hidden="true">/</span><span>Prepare a report</span></nav>
+      <p className="eyebrow">Complaint preparation</p>
       <h1>What happened?</h1>
       <p className="lead">Use your own words. Include the amount, bank, UTR and the scammer&apos;s number or UPI ID if you have them.</p>
+      <ol className="form-progress" aria-label="Preparation stages"><li aria-current="step"><b>1</b> Your account</li><li><b>2</b> Review draft</li><li><b>3</b> Next steps</li></ol>
+      {category && <p className="category-note">You selected: <strong>{category}</strong>. Describe what happened below; your account determines the report details.</p>}
       <div className="panel warning"><strong>Never type your OTP, PIN, CVV or password.</strong> Saakshya does not need them.</div>
-      <form onSubmit={submit}>
+      <form onSubmit={submit} className="report-form">
         <label htmlFor="language">Language for your draft</label>
         <select id="language" value={language} onChange={(event) => setLanguage(event.target.value)}>
           {LANGUAGES.map(([name, native]) => <option key={name} value={name}>{native} ({name})</option>)}
         </select>
 
         <label htmlFor="story">Your story</label>
-        <textarea id="story" rows={8} maxLength={5000} required minLength={10} value={story} onChange={(event) => setStory(event.target.value)} />
+        <textarea id="story" rows={8} maxLength={5000} required minLength={10} value={story} onChange={(event) => setStory(event.target.value)} aria-describedby="story-help" placeholder="Tell us what happened, when it happened, and any details you remember…" />
+        <p className="field-help" id="story-help">{story.length.toLocaleString()} / 5,000 characters. Your draft will need your review before you use it.</p>
 
         <div className="actions">
           <button type="button" className="button secondary" onClick={toggleRecording} disabled={busy || hearing}>
-            {recording ? "Stop recording" : hearing ? "Listening back..." : "Speak instead"}
+            <Icon name="mic"/>{recording ? "Stop recording" : hearing ? "Listening back..." : "Speak instead"}
           </button>
-          <button type="submit" className="button" disabled={busy || recording || hearing}>{busy ? "Working..." : "Prepare my report"}</button>
+          <button type="submit" className="button" disabled={busy || recording || hearing}>{busy ? "Working..." : "Prepare my report"}<Icon name="arrow"/></button>
         </div>
       </form>
 

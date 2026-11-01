@@ -18,7 +18,13 @@ export default function About() {
       </ul>
       <h2>What it is not</h2>
       <p>Saakshya is an independent hackathon project. It is not a government service, a law firm or a bank. It cannot file a report, freeze money or get money back.</p>
-      <p>The code is public on <a href={REPO} target="_blank" rel="noreferrer">GitHub</a>. Photos are from <a href="https://unsplash.com" target="_blank" rel="noreferrer">Unsplash</a> and show people who are not connected to any case.</p>
+      <p>The code is public on <a href={REPO} target="_blank" rel="noreferrer">GitHub</a>. Photos are illustrative stock images from Pexels and Unsplash; the people pictured are not identified as victims or users of Saakshya.</p>
+    <h2>Photography sources</h2>
+      <ul>
+        <li><a href="https://www.pexels.com/photo/woman-using-laptop-while-holding-cellphone-8837758/" target="_blank" rel="noreferrer">Phone and laptop photograph — Yan Krukau / Pexels</a></li>
+        <li><a href="https://www.pexels.com/photo/focused-young-indian-woman-typing-laptop-at-home-4307970/" target="_blank" rel="noreferrer">Laptop at home — Ketut Subiyanto / Pexels</a></li>
+        <li><a href="https://www.pexels.com/photo/profile-of-a-senior-woman-wearing-a-floral-blouse-using-laptop-19485860/" target="_blank" rel="noreferrer">Senior laptop user — Siddharth Vyas / Pexels</a></li>
+      </ul>
     </article>
   );
 }

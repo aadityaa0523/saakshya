@@ -4,7 +4,7 @@ Saakshya helps Indian cybercrime victims describe what happened by voice or text
 
 It is an independent project, not a government service. It never files a report for the victim and never promises money back. If money was sent, call **1930** first. Official reporting is at [cybercrime.gov.in](https://cybercrime.gov.in).
 
-**Status: in development.** The backend is written and tested offline. The web pages are not built yet, and the live AI, voice and WhatsApp services have not been run end to end.
+**Status: in development.** The website and backend are built, and the backend has offline tests. The live AI, voice and WhatsApp services have not been run end to end.
 
 The feature idea was inspired by [Samarthan](https://samarthan-ai-parichay-s-projects.vercel.app/). No code, name or design is taken from it.
 
