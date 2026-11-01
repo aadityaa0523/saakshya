@@ -18,7 +18,7 @@ Update the marked items once the live test is finished. Do not claim anything th
 - A dated, hash-chained record shows if anything was changed, including evidence files.
 - It states its limits: it files nothing, promises no recovery and is not a government service.
 
-**Architecture:** Next.js on Vercel, Postgres on Supabase with full-text search over the BNS 2023 and IT Act 2000, Gemini through an OpenAI-compatible API, and the Razorpay IFSC API. Sarvam speech and Twilio WhatsApp are built [TO CONFIRM: live-tested or not].
+**Architecture:** Next.js on Vercel, Postgres on Supabase with full-text search over the BNS 2023 and IT Act 2000, Gemini through an OpenAI-compatible API, and the Razorpay IFSC API. Sarvam speech and Twilio WhatsApp are built but not yet tested live, so remove them from the demo unless keys are added and they pass.
 
 ## 3. Links
 
@@ -48,7 +48,7 @@ Say that the story is made up.
 3. **The solution:** tell it, check it, take it to the right place.
 4. **Architecture and innovation:** the pipeline above, plus the fact check and hash chain.
 5. **Guardrails:** OTP refusal, masking, honest failures, no filing.
-6. **Evidence it works:** [ADD hard-case pass and fail counts from the live test]
+6. **Evidence it works:** 12 live hard cases: 11 pass and 1 partial, with the limits stated. See `docs/TEST_RESULTS.md`.
 7. **Roadmap:** legal review, security audit, India-region hosting, more languages, partner pilots.
 
 ## 6. Be ready to explain
