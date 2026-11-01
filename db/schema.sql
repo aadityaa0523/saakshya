@@ -33,3 +33,9 @@ CREATE TABLE IF NOT EXISTS law_sections (
   search tsvector GENERATED ALWAYS AS (to_tsvector('english', text)) STORED
 );
 CREATE INDEX IF NOT EXISTS law_sections_search ON law_sections USING gin (search);
+
+-- Supabase exposes the public schema over its API. With no policies, only the server's own
+-- database connection can reach these tables.
+ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE report_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE law_sections ENABLE ROW LEVEL SECURITY;
