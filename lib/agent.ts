@@ -140,6 +140,18 @@ export async function runTriage(raw: string, language: string, tools: Tools, emi
   return { urgency, story: text, fields, laws, draft, draftTranslated, draftError, priority, missing, question: extracted.question };
 }
 
+/** What the victim may change by hand. Empty text clears a field; anything malformed is rejected. */
+const optional = (pattern: RegExp) => z.string().trim().regex(pattern).or(z.literal("").transform(() => null)).nullable().optional();
+export const ReportEdit = z.strictObject({
+  amount: z.number().nonnegative().max(1e11).nullable().optional(),
+  bank_name: z.string().trim().max(100).nullable().optional(),
+  utr: optional(/^\d{12}$/),
+  ifsc: optional(/^[A-Za-z]{4}0[A-Za-z0-9]{6}$/),
+  scammer_upi: z.string().trim().max(100).nullable().optional(),
+  scammer_contact: z.string().trim().max(100).nullable().optional(),
+  draft: z.string().max(10000).optional(),
+});
+
 /** Merges a later message into a report. Only values actually found replace existing ones. */
 export async function runFollowup(raw: string, fields: Fields, ask: AskLlm): Promise<{ fields: Fields; missing: string[]; story: string }> {
   const { text, identifiers } = sanitize(raw);

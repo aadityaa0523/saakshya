@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { beforeAll, describe, expect, it } from "vitest";
-import { factCheck, missingFields, priorityOf, runFollowup, runTriage, type Fields, type Tools } from "@/lib/agent";
+import { factCheck, missingFields, priorityOf, ReportEdit, runFollowup, runTriage, type Fields, type Tools } from "@/lib/agent";
 import { chainIsValid, nextEntry } from "@/lib/chain";
 import { LlmError } from "@/lib/llm";
 import { sanitize, SecretBlocked, urgencyOf } from "@/lib/safety";
@@ -85,6 +85,15 @@ describe("rules", () => {
   it("lists what is missing", () => {
     const fields = { category: "Financial Fraud", amount: 5, bank_name: null, utr: null, scammer_upi: "a@b", scammer_contact: null } as Fields;
     expect(missingFields(fields)).toEqual(["Transaction UTR", "Your bank"]);
+  });
+});
+
+describe("report edits", () => {
+  it("accepts valid details and clears empty ones", () => {
+    expect(ReportEdit.parse({ utr: "482910394821", ifsc: "" })).toEqual({ utr: "482910394821", ifsc: null });
+  });
+  it.each([{ utr: "12345" }, { ifsc: "BAD" }, { amount: -1 }, { priority: "LOW" }])("rejects %j", (edit) => {
+    expect(ReportEdit.safeParse(edit).success).toBe(false);
   });
 });
 
