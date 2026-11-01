@@ -47,7 +47,7 @@ async function translateBatch(language, strings) {
   return {};
 }
 
-const strings = [...new Set([...walk("app"), "lib/blog.ts", "lib/site.ts", "lib/actions.ts", "lib/agent.ts"].flatMap((file) => extractStrings(readFileSync(file, "utf8"))))];
+const strings = [...new Set([...walk("app"), "lib/blog.ts", "lib/site.ts", "lib/actions.ts", "lib/agent.ts", "lib/scams.ts", "lib/useVoice.ts"].flatMap((file) => extractStrings(readFileSync(file, "utf8"))))];
 console.log(`${strings.length} strings`);
 if (process.argv.includes("--list")) {
   console.log(strings.join("\n"));
