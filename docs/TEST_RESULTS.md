@@ -27,7 +27,8 @@ Report, IFSC lookup, follow-up update, invalid edit refused, wrong link refused,
 
 - The AI uses a free tier, so heavy use can hit its limit. A failure shows a message to call 1930, and nothing is saved.
 - Law suggestions come from keyword search and AI choice, and have not had legal review. For example, IT Act 66C was suggested for bank impersonation, which may not fit.
-- Voice and WhatsApp have not been tested live, because they have no keys yet.
-- Only Hindi and English drafts were tested. The site's own pages are in English.
+- WhatsApp uses the Twilio sandbox: it worked with a real phone message, but each tester must join and rejoin every 3 days.
+- Voice transcription passed with a spoken audio file on the live service. Check it with a real microphone in Hindi or Telugu before relying on it.
+- Hindi, Telugu and English drafts were tested. Site translations are made by AI and have not had human review.
 - A bare OTP with no label cannot be recognised.
 - The database is in Paris, not India.

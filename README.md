@@ -4,7 +4,7 @@ Saakshya helps Indian cybercrime victims describe what happened by voice or text
 
 It is an independent project, not a government service. It never files a report for the victim and never promises money back. If money was sent, call **1930** first. Official reporting is at [cybercrime.gov.in](https://cybercrime.gov.in).
 
-**Status: live at https://saakshya-eta.vercel.app.** Reports run end to end on the live database and AI; see [test results](docs/TEST_RESULTS.md). Voice and WhatsApp are built but not yet tested live.
+**Status: live at https://saakshya-eta.vercel.app.** Reports run end to end on the live database and AI; see [test results](docs/TEST_RESULTS.md). WhatsApp runs on the Twilio sandbox. Voice uses the main AI service.
 
 The feature idea was inspired by [Samarthan](https://samarthan-ai-parichay-s-projects.vercel.app/). No code, name or design is taken from it.
 

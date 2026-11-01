@@ -18,7 +18,7 @@ Update the marked items once the live test is finished. Do not claim anything th
 - A dated, hash-chained record shows if anything was changed, including evidence files.
 - It states its limits: it files nothing, promises no recovery and is not a government service.
 
-**Architecture:** Next.js on Vercel, Postgres on Supabase with full-text search over the BNS 2023 and IT Act 2000, Gemini through an OpenAI-compatible API, and the Razorpay IFSC API. Sarvam speech and Twilio WhatsApp are built but not yet tested live, so remove them from the demo unless keys are added and they pass.
+**Architecture:** Next.js on Vercel, Postgres on Supabase with full-text search over the BNS 2023 and IT Act 2000, Gemini through an OpenAI-compatible API, and the Razorpay IFSC API. Voice uses the same AI service. WhatsApp runs on the Twilio sandbox, so demo it from a phone that has joined.
 
 ## 3. Links
 
