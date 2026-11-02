@@ -17,7 +17,7 @@ export const askBy = (deadline: number): AskLlm => async (prompt, schema, attach
   const { LLM_BASE_URL, LLM_MODEL, LLM_FALLBACK_MODEL, LLM_API_KEY } = process.env;
   if (!LLM_BASE_URL || !LLM_MODEL || !LLM_API_KEY) throw new LlmError("AI service is not configured");
   let failure = "no response";
-  const attempts = LLM_FALLBACK_MODEL ? [[LLM_MODEL, 14_000], [LLM_FALLBACK_MODEL, 16_000], [LLM_MODEL, 14_000]] as const : [[LLM_MODEL, 20_000], [LLM_MODEL, 20_000]] as const;
+  const attempts = LLM_FALLBACK_MODEL ? [[LLM_MODEL, attachment ? 14_000 : 8_000], [LLM_FALLBACK_MODEL, 16_000], [LLM_MODEL, 14_000]] as const : [[LLM_MODEL, 20_000], [LLM_MODEL, 20_000]] as const;
   for (const [model, timeout] of attempts) {
     const left = deadline - Date.now();
     if (left < 1000) break;
