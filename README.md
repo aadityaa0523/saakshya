@@ -208,6 +208,4 @@ docs/           Test results and submission pack
 3. Security audit, data-protection review and India-region hosting
 4. Pilot with legal aid groups and victim-support partners
 
-## Credits
 
-The feature idea was inspired by [Samarthan](https://samarthan-ai-parichay-s-projects.vercel.app/). No code, name or design is taken from it. Photo sources are in [MEDIA-SOURCES.md](MEDIA-SOURCES.md). Saakshya was built with AI coding assistance.
