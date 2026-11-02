@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS vector;
+
 CREATE TABLE IF NOT EXISTS reports (
   id uuid PRIMARY KEY,
   token_hash text NOT NULL,
@@ -33,6 +35,8 @@ CREATE TABLE IF NOT EXISTS law_sections (
   search tsvector GENERATED ALWAYS AS (to_tsvector('english', text)) STORED
 );
 CREATE INDEX IF NOT EXISTS law_sections_search ON law_sections USING gin (search);
+-- About 450 rows, so an exact scan is fast and no vector index is needed.
+ALTER TABLE law_sections ADD COLUMN IF NOT EXISTS embedding vector(768);
 
 CREATE TABLE IF NOT EXISTS evidence (
   id uuid PRIMARY KEY,

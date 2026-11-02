@@ -1,6 +1,6 @@
 import { Pool } from "pg";
 import type { Tools } from "./agent";
-import { askLlm } from "./llm";
+import { askLlm, embedText } from "./llm";
 import { searchLaws, type Query } from "./store";
 import { SUPABASE_CA } from "./supabase-ca.mjs";
 
@@ -22,4 +22,4 @@ async function lookupIfsc(ifsc: string) {
   }
 }
 
-export const tools: Tools = { ask: askLlm, searchLaws: (terms) => searchLaws(query, terms), lookupIfsc };
+export const tools: Tools = { ask: askLlm, searchLaws: async (terms, meaning) => searchLaws(query, terms, meaning ? await embedText(meaning) : null), lookupIfsc };

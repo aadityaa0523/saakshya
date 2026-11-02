@@ -26,7 +26,7 @@ export type Fields = Identifiers & { category: string; amount: number | null; ba
 export type Step = { tool: string; status: "ok" | "failed" | "skipped"; detail: string };
 export type Tools = {
   ask: AskLlm;
-  searchLaws: (terms: string) => Promise<LawCandidate[]>;
+  searchLaws: (terms: string, meaning?: string) => Promise<LawCandidate[]>;
   lookupIfsc: (ifsc: string) => Promise<{ bank: string; branch: string } | null>;
 };
 export type TriageResult = {
@@ -153,7 +153,7 @@ export async function runTriage(raw: string, language: string, tools: Tools, emi
   const laws: TriageResult["laws"] = [];
   let lawFailure = "";
   try {
-    const candidates = await tools.searchLaws(`${extracted.search_terms} ${CORE_OFFENCES[fields.category] ?? ""}`);
+    const candidates = await tools.searchLaws(`${extracted.search_terms} ${CORE_OFFENCES[fields.category] ?? ""}`, fields.summary);
     if (candidates.length) {
       const chosen = await tools.ask(
         `Choose up to 4 sections that define an offence matching these facts, starting with the core offence such as cheating where it fits, and give a one-line reason for each. Skip procedural sections and any section that does not clearly fit; choose none if none fit. Return {"picks":[{"id","reason"}]}. Use only these sections:\n` +

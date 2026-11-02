@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
+import { vector } from "@electric-sql/pglite-pgvector";
 import { beforeAll, describe, expect, it } from "vitest";
 import { bankRequest, callScript, completeness, contactsFor } from "@/lib/actions";
 import { factCheck, unsupportedSections, writtenAmounts, missingFields, priorityOf, ReportEdit, runFollowup, runTriage, type Fields, type Tools } from "@/lib/agent";
@@ -256,7 +257,7 @@ describe("agent", () => {
 });
 
 describe("database", () => {
-  const db = new PGlite();
+  const db = new PGlite({ extensions: { vector } });
   const query = ((sql: string, params?: unknown[]) => db.query(sql, params)) as unknown as Query;
   beforeAll(async () => {
     await db.exec(readFileSync("db/schema.sql", "utf8"));
@@ -293,6 +294,11 @@ describe("database", () => {
   it("finds law sections by full-text search", async () => {
     expect((await searchLaws(query, "cheating personation")).map((l) => l.id)).toEqual(["it-66d"]);
     expect(await searchLaws(query, "zebra")).toEqual([]);
+    // No shared keyword, so only the meaning search can find it
+    await query("UPDATE law_sections SET embedding = $1 WHERE id = 'it-66d'", [JSON.stringify(Array(768).fill(0.5))]);
+    expect((await searchLaws(query, "zebra", Array(768).fill(0.5))).map((l) => l.id)).toEqual(["it-66d"]);
+    // A wrong-sized vector makes the meaning query fail, and keywords still answer
+    expect((await searchLaws(query, "cheating", [1, 2])).map((l) => l.id)).toEqual(["it-66d"]);
   });
 });
 

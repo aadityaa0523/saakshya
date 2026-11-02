@@ -15,6 +15,12 @@ describe("law text", () => {
     expect(sections.size).toBeGreaterThanOrEqual(350);
   }, 60000);
 
+  it("reads the amended hacking sections of the IT Act", async () => {
+    const sections = await readAct(ACTS[1]);
+    expect(sections.get("43")).toContain("damage to computer");
+    expect(sections.get("66")).toContain("Computer related offences");
+  });
+
   it("reads the identity theft and personation sections of the IT Act", async () => {
     const sections = await readAct(ACTS[1]);
     expect(sections.get("66C")).toMatch(/identity theft/i);

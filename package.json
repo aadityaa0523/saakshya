@@ -9,7 +9,9 @@
     "lint": "eslint",
     "test": "vitest run",
     "db:setup": "node --env-file=.env.local scripts/setup-db.mjs",
-    "db:laws": "node --env-file=.env.local scripts/load-laws.mjs"
+    "db:laws": "node --env-file=.env.local scripts/load-laws.mjs",
+    "db:embed": "node --env-file=.env.local scripts/embed-laws.mjs",
+    "eval:laws": "node --env-file=.env.local scripts/eval-laws.mjs"
   },
   "dependencies": {
     "next": "15.5.28",
@@ -21,6 +23,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.14",
+    "@electric-sql/pglite-pgvector": "^0.0.15",
     "@eslint/eslintrc": "^3",
     "@types/node": "^22.20.5",
     "@types/pg": "^8.23.1",

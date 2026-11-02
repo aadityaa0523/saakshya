@@ -7,9 +7,9 @@
 **An AI agent that turns a cybercrime victim's story, told by voice, text, screenshot or WhatsApp, into a checked complaint draft and clear next steps.**
 
 [![Checks](https://github.com/aadityaa0523/saakshya/actions/workflows/checks.yml/badge.svg)](https://github.com/aadityaa0523/saakshya/actions/workflows/checks.yml)
-![Tests](https://img.shields.io/badge/tests-51%20passing-1a7f4b)
+![Tests](https://img.shields.io/badge/tests-52%20passing-1a7f4b)
 ![Languages](https://img.shields.io/badge/languages-15-164a8d)
-![Law sections](https://img.shields.io/badge/law%20sections-449-164a8d)
+![Law sections](https://img.shields.io/badge/law%20sections-465-164a8d)
 
 **[Open the live app](https://saakshya-eta.vercel.app)** · [Test results](docs/TEST_RESULTS.md) · [Submission pack](docs/SUBMISSION.md)
 
@@ -73,7 +73,7 @@ flowchart TD
   API --> Guard[Safety guard<br/>blocks OTPs, masks IDs]
   Guard --> Extract[Extract facts<br/>AI, schema validated]
   Extract --> IFSC[Razorpay IFSC lookup]
-  Extract --> Laws[Law search<br/>Postgres full text]
+  Extract --> Laws[Hybrid law search<br/>pgvector + full text]
   Laws --> Pick[AI picks sections<br/>only from search results]
   Pick --> Draft[Write draft<br/>AI]
   Draft --> Check{Fact check<br/>plain code}
@@ -83,6 +83,8 @@ flowchart TD
   LLM[Main AI model] -. quota or stall .-> Backup[Backup model]
 ```
 
+**Law retrieval is hybrid RAG.** Each section of the Acts has a 768-dimension embedding in pgvector. A report's summary is searched by meaning and its keywords by Postgres full text, and the two rankings are merged with reciprocal rank fusion. The AI then chooses only from those results, and a draft citing any other section is rejected. If embeddings are unavailable, keyword search answers alone.
+
 **The main rule:** the AI reads and writes, while plain code decides what can be trusted. Code sets priority, validates fields, adds totals, restricts citations and checks every number in a draft.
 
 ### Built with
@@ -90,7 +92,7 @@ flowchart TD
 | Layer | Technology |
 |---|---|
 | App | Next.js 15, React 19, TypeScript, deployed on Vercel |
-| Database | Postgres on Supabase, full-text search, row-level security, verified TLS |
+| Database | Postgres on Supabase, pgvector and full-text search, row-level security, verified TLS |
 | AI | Gemini through an OpenAI-compatible API, for text, speech and images, with a backup model |
 | Messaging | Twilio WhatsApp sandbox |
 | Live data | Razorpay IFSC API |
@@ -103,6 +105,7 @@ flowchart TD
 |---|---|
 | Main AI model hits its quota or stalls | The backup model takes over |
 | Draft contains an invented number | Rewritten once with the error fed back, then held back if it persists |
+| Meaning search fails | Keyword search answers alone |
 | Law search or drafting fails | The report is still saved, and the draft can be retried |
 | AI is completely unavailable | A clear message to call 1930, and the victim's words are kept |
 | Connection drops | A plain-language message, and the story is kept in the browser |
@@ -114,7 +117,7 @@ flowchart TD
 
 ## Test results
 
-- **51 automated tests**, run on every push.
+- **52 automated tests**, run on every push.
 - **12 live hard cases** on the deployed site, including pasted OTPs, digital arrest, sextortion, self-harm language, prompt injection, gibberish and multi-bank payments. All pass after fixes, with one note. See [full results and limits](docs/TEST_RESULTS.md).
 
 ## Run it locally
@@ -133,6 +136,7 @@ Fill in `.env.local`, then:
 ```bash
 npm run db:setup
 npm run db:laws
+npm run db:embed
 npm run dev
 ```
 
@@ -143,6 +147,7 @@ Open http://localhost:3000, and check `/api/health` to see which services are co
 | `DATABASE_URL` | Postgres connection | Yes |
 | `LLM_BASE_URL`, `LLM_MODEL`, `LLM_API_KEY` | Main AI service | Yes |
 | `LLM_FALLBACK_MODEL` | Backup model | Recommended |
+| `EMBEDDING_MODEL` | Law search by meaning, default `gemini-embedding-001` | No |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM` | WhatsApp | For WhatsApp |
 | `APP_URL` | Report links and webhook checks | For WhatsApp |
 

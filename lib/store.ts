@@ -1,6 +1,7 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import type { LawCandidate, TriageResult } from "./agent";
 import { chainIsValid, nextEntry, type ChainEntry } from "./chain";
+import { hybridSearchSql, keywordSearchSql, orQuery } from "./law-search.mjs";
 
 export type Query = (sql: string, params?: unknown[]) => Promise<{ rows: any[] }>; // eslint-disable-line @typescript-eslint/no-explicit-any
 
@@ -46,16 +47,14 @@ export async function verifyChain(query: Query, id: string) {
   return { valid: chainIsValid(rows as ChainEntry[]), events: rows as ChainEntry[] };
 }
 
-export async function searchLaws(query: Query, terms: string): Promise<LawCandidate[]> {
-  const { rows } = await query(
-    `SELECT id, act, section, text, source_url FROM law_sections
-     WHERE search @@ to_tsquery('english', $1)
-     ORDER BY ts_rank(search, to_tsquery('english', $1), 1) DESC LIMIT 12`,
-    [orQuery(terms)],
-  );
-  return rows;
-}
-
-function orQuery(terms: string): string {
-  return terms.toLowerCase().match(/[a-z]{3,}/g)?.join(" | ") || "cheating";
+/** Searches by meaning and keywords together, or by keywords alone when no embedding is available. */
+export async function searchLaws(query: Query, terms: string, embedding?: number[] | null): Promise<LawCandidate[]> {
+  if (embedding) {
+    try {
+      return (await query(hybridSearchSql, [orQuery(terms), JSON.stringify(embedding)])).rows;
+    } catch {
+      console.error("meaning search failed, using keywords");
+    }
+  }
+  return (await query(keywordSearchSql, [orQuery(terms)])).rows;
 }

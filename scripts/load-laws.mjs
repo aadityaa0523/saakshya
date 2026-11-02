@@ -10,8 +10,8 @@ export const ACTS = [
 ];
 
 // A section heading ends in a dash and can wrap over lines. Contents-page lines have no dash
-// before the next numbered line, so they are skipped.
-const HEADING = /^\s*\[?(\d{1,3}[A-Z]{0,2})\.\s+\[?([A-Z](?:(?!\n\s*\d{1,3}[A-Z]{0,2}\.\s)[^—–]){2,300}?)\.?\s*[—–]{1,2}\s*/gm;
+// before the next numbered line, so they are skipped. Amended sections start with a footnote mark, as in "6[66."
+const HEADING = /^\s*(?:\d{0,2}\[)?(\d{1,3}[A-Z]{0,2})\.\s+(?:\d{0,2}\[)?([A-Z](?:(?!\n\s*\d{1,3}[A-Z]{0,2}\.\s)[^—–]){2,300}?)\.?\s*[—–]{1,2}\s*/gm;
 
 export function parseSections(text) {
   const headings = [...text.matchAll(HEADING)];
@@ -41,7 +41,8 @@ async function main() {
       for (const [section, text] of sections) {
         await client?.query(
           `INSERT INTO law_sections (id, act, section, text, source_url) VALUES ($1,$2,$3,$4,$5)
-           ON CONFLICT (id) DO UPDATE SET text = EXCLUDED.text, source_url = EXCLUDED.source_url`,
+           ON CONFLICT (id) DO UPDATE SET text = EXCLUDED.text, source_url = EXCLUDED.source_url,
+             embedding = CASE WHEN law_sections.text = EXCLUDED.text THEN law_sections.embedding END`,
           [`${act.key}-${section}`, act.act, section, text, act.source_url],
         );
       }

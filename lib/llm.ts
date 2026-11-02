@@ -45,4 +45,22 @@ export const askLlm: AskLlm = askBy(Infinity);
 /** For routes limited to 60 seconds: leaves time to save the result and reply. */
 export const askWithinRoute = () => askBy(Date.now() + 50_000);
 
+/** Returns null on any failure, because keyword search can still answer without it. Callers pass only sanitized text. */
+export async function embedText(text: string): Promise<number[] | null> {
+  const { LLM_BASE_URL, LLM_API_KEY, EMBEDDING_MODEL = "gemini-embedding-001" } = process.env;
+  if (!LLM_BASE_URL || !LLM_API_KEY) return null;
+  try {
+    const response = await fetch(LLM_BASE_URL.replace(/\/$/, "") + "/embeddings", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${LLM_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: EMBEDDING_MODEL, input: [text], dimensions: 768 }),
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!response.ok) return null;
+    return (await response.json()).data[0].embedding;
+  } catch {
+    return null;
+  }
+}
+
 export const wrapStory = (story: string) => `<story>${story.replace(/</g, "(")}</story>`;
