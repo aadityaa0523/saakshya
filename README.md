@@ -7,7 +7,7 @@
 **An AI agent that turns a cybercrime victim's story, told by voice, text, screenshot or WhatsApp, into a checked complaint draft and clear next steps.**
 
 [![Checks](https://github.com/aadityaa0523/saakshya/actions/workflows/checks.yml/badge.svg)](https://github.com/aadityaa0523/saakshya/actions/workflows/checks.yml)
-![Tests](https://img.shields.io/badge/tests-46%20passing-1a7f4b)
+![Tests](https://img.shields.io/badge/tests-51%20passing-1a7f4b)
 ![Languages](https://img.shields.io/badge/languages-15-164a8d)
 ![Law sections](https://img.shields.io/badge/law%20sections-449-164a8d)
 
@@ -114,7 +114,7 @@ flowchart TD
 
 ## Test results
 
-- **46 automated tests**, run on every push.
+- **51 automated tests**, run on every push.
 - **12 live hard cases** on the deployed site, including pasted OTPs, digital arrest, sextortion, self-harm language, prompt injection, gibberish and multi-bank payments. All pass after fixes, with one note. See [full results and limits](docs/TEST_RESULTS.md).
 
 ## Run it locally

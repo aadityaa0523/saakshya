@@ -4,9 +4,10 @@ const SECRET = new RegExp(
   "i",
 );
 // \b is unreliable with Indian-script vowel signs, so these match on the word itself
-const SECRET_INDIC = /(ओटीपी|पिन|पासवर्ड|ఓటీపీ|పిన్|పాస్\u200c?వర్డ్)\D{0,15}\d{3,8}|\d{3,8}\D{0,15}(ओटीपी|पिन|पासवर्ड|ఓటీపీ|పిన్|పాస్\u200c?వర్డ్)/;
+const INDIC_WORD = "ओटीपी|पिन|पासवर्ड|ఓటీపీ|పిన్|పాస్\\u200c?వర్డ్|ওটিপি|ஓடிபி|ಒಟಿಪಿ|ഒടിപി|ઓટીપી|ਓਟੀਪੀ|ଓଟିପି|او ٹی پی";
+const SECRET_INDIC = new RegExp(`(${INDIC_WORD})\\D{0,15}\\d{3,8}|\\d{3,8}\\D{0,15}(${INDIC_WORD})`);
 const ONGOING = /digital arrest|डिजिटल अरेस्ट|డిజిటల్ అరెస్ట్|still on (the )?(call|video)|(on|in) (a |the )?(video )?call (with|from)|told (me )?(to|not to) (pay|transfer|disconnect|tell)|keep(ing)? me on/i;
-const CRISIS = /kill myself|आत्महत्या|ఆత్మహత్య|suicid|end my life|don'?t want to live|self[- ]harm/i;
+const CRISIS = /kill myself|आत्महत्या|ఆత్మహత్య|আত্মহত্যা|தற்கொலை|ಆತ್ಮಹತ್ಯೆ|ആത്മഹത്യ|આત્મહત્યા|ਖੁਦਕੁਸ਼ੀ|ଆତ୍ମହତ୍ୟା|خودکشی|khudkushi|aatmahatya|suicid|end my life|don'?t want to live|self[- ]harm/i;
 const RECENT = /just now|minutes? ago|abhi|अभी|ఇప్పుడే/i;
 
 const UTR = /\b(?:utr|rrn|ref(?:erence)?(?:\s*(?:no|number|id))?|transaction\s*id)\b\W{0,5}(?:is\W{0,3})?(\d{12})\b/i;
@@ -19,6 +20,17 @@ const MASKS: [RegExp, string][] = [
   [/\b\d{4}[ -]?\d{4}[ -]?\d{4}\b/g, "[AADHAAR]"],
   [/\b\d{9,18}\b/g, "[ACCOUNT]"],
 ];
+
+const DIGIT_ZEROS = [0x660, 0x6f0, 0x966, 0x9e6, 0xa66, 0xae6, 0xb66, 0xbe6, 0xc66, 0xce6, 0xd66, 0x1c50];
+
+/** Rewrites digits from Indian scripts as 0-9, because every number check below only reads those. */
+export function asciiDigits(text: string): string {
+  return text.replace(/\p{Nd}/gu, (digit) => {
+    const code = digit.codePointAt(0)!;
+    const zero = DIGIT_ZEROS.find((start) => code >= start && code < start + 10);
+    return zero === undefined ? digit : String(code - zero);
+  });
+}
 
 export class SecretBlocked extends Error {
   constructor() {
@@ -33,8 +45,8 @@ export type Identifiers = { utr: string | null; ifsc: string | null; scammer_upi
  * them. A bare OTP with no label still gets through; the app warns about this at intake.
  */
 export function sanitize(raw: string): { text: string; identifiers: Identifiers } {
-  if (SECRET.test(raw) || SECRET_INDIC.test(raw)) throw new SecretBlocked();
-  let text = raw;
+  let text = asciiDigits(raw);
+  if (SECRET.test(text) || SECRET_INDIC.test(text)) throw new SecretBlocked();
   const take = (pattern: RegExp, label: string) => {
     const match = text.match(pattern);
     if (!match) return null;

@@ -2,12 +2,12 @@ import { readFileSync } from "node:fs";
 import { PGlite } from "@electric-sql/pglite";
 import { beforeAll, describe, expect, it } from "vitest";
 import { bankRequest, callScript, completeness, contactsFor } from "@/lib/actions";
-import { factCheck, missingFields, priorityOf, ReportEdit, runFollowup, runTriage, type Fields, type Tools } from "@/lib/agent";
+import { factCheck, unsupportedSections, writtenAmounts, missingFields, priorityOf, ReportEdit, runFollowup, runTriage, type Fields, type Tools } from "@/lib/agent";
 import { chainIsValid, nextEntry } from "@/lib/chain";
 import { addEvidence, getEvidence, overLimit, sniffType } from "@/lib/evidence";
 import { z } from "zod";
-import { askLlm, LlmError } from "@/lib/llm";
-import { sanitize, SecretBlocked, urgencyOf } from "@/lib/safety";
+import { askBy, askLlm, LlmError } from "@/lib/llm";
+import { asciiDigits, sanitize, SecretBlocked, urgencyOf } from "@/lib/safety";
 import { encodeWav } from "@/lib/wav";
 import { appendEvent, createReport, getReport, searchLaws, verifyChain, type Query } from "@/lib/store";
 
@@ -175,7 +175,7 @@ describe("agent", () => {
     const ask = tools.ask;
     const listing = { ...tools, searchLaws: async (terms: string) => { searched = terms; return tools.searchLaws(terms); }, ask: (async (prompt: string, schema: { parse: (value: unknown) => unknown }) => prompt.startsWith("Extract") ? schema.parse({ ...EXTRACT, search_terms: ["cheating", "personation"] }) : ask(prompt, schema as never)) as Tools["ask"] };
     await runTriage("I sent ₹50,000 through a UPI link", "en", listing, () => {});
-    expect(searched).toBe("cheating personation");
+    expect(searched).toContain("cheating personation");
   });
   it("rewrites a rejected draft, telling the AI what was wrong", async () => {
     const tools = fakeTools();
@@ -293,5 +293,35 @@ describe("database", () => {
   it("finds law sections by full-text search", async () => {
     expect((await searchLaws(query, "cheating personation")).map((l) => l.id)).toEqual(["it-66d"]);
     expect(await searchLaws(query, "zebra")).toEqual([]);
+  });
+});
+
+describe("real-world amounts and scripts", () => {
+  it("reads amounts the way Indian victims write them", () => {
+    for (const [story, amount] of [["lost 2 lakh rupees", 200000], ["took 1.5 lakh", 150000], ["sent 50k by UPI", 50000], ["1 crore gone", 10000000], ["50 हजार कट गए", 50000], ["50 हज़ार", 50000], ["2 லட்சம்", 200000], ["₹6,25,000", 625000]] as const) {
+      expect(writtenAmounts(story), story).toContain(amount);
+    }
+    expect(writtenAmounts("bought 50 kg of rice")).not.toContain(50000);
+  });
+  it("treats digits from Indian scripts as numbers", () => {
+    expect(asciiDigits("५००० and ౧౨ and ৩")).toBe("5000 and 12 and 3");
+    expect(() => sanitize("मेरा ओटीपी ४८२९१० है")).toThrow(SecretBlocked);
+    expect(() => sanitize("my OTP is ४८२९१०")).toThrow(SecretBlocked);
+    expect(factCheck("मैंने ७५००० खोए", "lost 50000")).toHaveLength(1);
+    expect(factCheck("मैंने ५०००० खोए", "lost 50000")).toEqual([]);
+  });
+  it("finds crisis language and OTP words across offered languages", () => {
+    for (const text of ["আত্মহত্যা করব", "தற்கொலை", "ಆತ್ಮಹತ್ಯೆ", "ആത്മഹത്യ", "આત્મહત્યા", "خودکشی"]) expect(urgencyOf(text), text).toBe("crisis");
+    expect(() => sanitize("আমার ওটিপি 482910")).toThrow(SecretBlocked);
+  });
+  it("rejects a draft citing a section the law search did not return", () => {
+    expect(unsupportedSections("Section 318 and s. 66D may apply", [{ section: "318" }, { section: "66D" }])).toEqual([]);
+    expect(unsupportedSections("Section 999 applies", [{ section: "318" }])).toHaveLength(1);
+  });
+  it("stops calling the AI once the deadline has passed", async () => {
+    process.env.LLM_BASE_URL = "http://localhost:1";
+    process.env.LLM_MODEL = "m";
+    process.env.LLM_API_KEY = "k";
+    await expect(askBy(Date.now() - 1)("x", z.object({}))).rejects.toBeInstanceOf(LlmError);
   });
 });

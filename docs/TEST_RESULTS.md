@@ -31,4 +31,6 @@ Report, IFSC lookup, follow-up update, invalid edit refused, wrong link refused,
 - Voice transcription passed with a spoken audio file on the live service. Check it with a real microphone in Hindi or Telugu before relying on it.
 - Hindi, Telugu and English drafts were tested. Site translations are made by AI and have not had human review.
 - A bare OTP with no label cannot be recognised.
+- Amounts written fully in words, such as "five thousand", are left empty and asked for. "5 thousand", "2 lakh", "50k" and "50 हजार" are read.
+- Crisis and OTP words outside English, Hindi and Telugu come from a word list and have not been checked by native speakers.
 - The database is in Paris, not India.

@@ -1,6 +1,7 @@
 import { after } from "next/server";
 import twilio from "twilio";
 import { runTriage } from "@/lib/agent";
+import { askWithinRoute } from "@/lib/llm";
 import { sanitize, SecretBlocked } from "@/lib/safety";
 import { query, tools } from "@/lib/server";
 import { createReport } from "@/lib/store";
@@ -15,7 +16,7 @@ const twiml = (text: string) => {
 
 async function prepareReport(story: string, send: (body: string) => Promise<unknown>) {
   try {
-    const result = await runTriage(story, "auto", tools, () => {});
+    const result = await runTriage(story, "auto", { ...tools, ask: askWithinRoute() }, () => {});
     const { id, token } = await createReport(query, result, "auto", "whatsapp");
     await send(
       result.urgency === "crisis"

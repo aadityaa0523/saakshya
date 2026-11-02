@@ -1,7 +1,7 @@
 import { z } from "zod";
 import type { AskLlm } from "./llm";
 import { wrapStory } from "./llm";
-import { sanitize, urgencyOf, type Identifiers, type Urgency } from "./safety";
+import { asciiDigits, sanitize, urgencyOf, type Identifiers, type Urgency } from "./safety";
 
 export const CATEGORIES = ["Financial Fraud", "Women/Children Related Crime", "Extortion & Blackmail", "Identity Theft", "E-Commerce Scam", "Other Cyber Crime", "Not Cybercrime"] as const;
 
@@ -42,15 +42,31 @@ export type TriageResult = {
   question: string;
 };
 
+// Keyword search alone can miss the core offence, so each category always looks for it too
+const CORE_OFFENCES: Record<string, string> = {
+  "Financial Fraud": "cheating personation",
+  "E-Commerce Scam": "cheating",
+  "Extortion & Blackmail": "extortion intimidation",
+  "Women/Children Related Crime": "obscene sexually explicit",
+  "Identity Theft": "identity theft personation",
+};
+
 const PROMISES = /\b(guarantee\w*|will (get|receive) (a |your |the )?(money|refund)|assured refund)\b/i;
 
 /** Every number in a draft must come from the victim's text or computed facts. */
 export function factCheck(draft: string, allowed: string): string[] {
-  const numbers = (text: string) => (text.match(/\d[\d,]*/g) ?? []).map((n) => n.replace(/,/g, ""));
+  const numbers = (text: string) => (asciiDigits(text).match(/\d[\d,]*/g) ?? []).map((n) => n.replace(/,/g, ""));
   const known = new Set(numbers(allowed));
   const problems = [...new Set(numbers(draft))].filter((n) => !known.has(n)).map((n) => `Number not in your details: ${n}`);
   if (PROMISES.test(draft)) problems.push("Promises a result");
   return problems;
+}
+
+/** A section named in a draft must be one that law search returned, even if the victim's text mentions another. */
+export function unsupportedSections(draft: string, laws: { section: string }[]): string[] {
+  const known = new Set(laws.map((law) => law.section.toUpperCase()));
+  const cited = [...asciiDigits(draft).matchAll(/\b(?:sec(?:tion)?s?\.?|s\.)\s*(\d+[A-Z]*)/gi)].map((match) => match[1].toUpperCase());
+  return [...new Set(cited)].filter((section) => !known.has(section)).map((section) => `Section not from the law search: ${section}`);
 }
 
 export function priorityOf(urgency: Urgency, fields: Pick<Fields, "category" | "amount">): TriageResult["priority"] {
@@ -69,11 +85,25 @@ export function missingFields(fields: Fields): string[] {
   return checklistFor(fields).filter(([, value]) => !value).map(([name]) => name);
 }
 
-/** An amount the victim never wrote in digits is dropped, and the tracker asks for it instead. */
+const NUMBER = "\\d[\\d,]*(?:\\.\\d+)?";
+const toNumber = (written: string) => Number(written.replace(/,/g, ""));
+const SCALES: [RegExp, number][] = [
+  [new RegExp(`(${NUMBER})\\s*(?:thousand|k(?![a-z])|hazar|hajar|ह(?:ज\u093C?|\u095B)ार|ஆயிரம்|వేల|ಸಾವಿರ|ആയിരം|হাজার|હજાર|ਹਜ\u0A3C?ਾਰ|ہزار|ହଜାର)`, "gi"), 1e3],
+  [new RegExp(`(${NUMBER})\\s*(?:lakh|lac|लाख|லட்ச|లక్ష|ಲಕ್ಷ|ലക്ഷ|লাখ|લાખ|ਲੱਖ|لاکھ|ଲକ୍ଷ)`, "gi"), 1e5],
+  [new RegExp(`(${NUMBER})\\s*(?:crore|cr(?![a-z])|करो(?:ड\u093C?|\u095C)|कोटी|கோடி|కోటి|ಕೋಟಿ|കോടി|কোটি|કરોડ|ਕਰੋੜ|کروڑ|କୋଟି)`, "gi"), 1e7],
+];
+
+/** Amounts the victim wrote with digits, including forms like "2 lakh", "50k" and "50 हजार". */
+export function writtenAmounts(story: string): number[] {
+  const plain = (story.match(new RegExp(NUMBER, "g")) ?? []).flatMap((n) => [toNumber(n), Math.trunc(toNumber(n))]);
+  const scaled = SCALES.flatMap(([pattern, scale]) => [...story.matchAll(pattern)].map((match) => Math.round(toNumber(match[1]) * scale)));
+  return [...plain, ...scaled];
+}
+
+/** An amount the victim never wrote with digits is dropped, and the tracker asks for it instead. */
 function supportedAmount(amount: number | null, story: string): number | null {
   if (amount === null) return null;
-  const written = (story.match(/\d[\d,]*/g) ?? []).map((n) => Number(n.replace(/,/g, "")));
-  return written.includes(amount) ? amount : null;
+  return writtenAmounts(story).includes(amount) ? amount : null;
 }
 
 /** Keeps the list only if every payment was written in digits by the victim; a partial list would give a wrong total. */
@@ -123,10 +153,10 @@ export async function runTriage(raw: string, language: string, tools: Tools, emi
   const laws: TriageResult["laws"] = [];
   let lawFailure = "";
   try {
-    const candidates = await tools.searchLaws(extracted.search_terms);
+    const candidates = await tools.searchLaws(`${extracted.search_terms} ${CORE_OFFENCES[fields.category] ?? ""}`);
     if (candidates.length) {
       const chosen = await tools.ask(
-        `Choose up to 4 sections that define an offence matching these facts, and give a one-line reason for each. Skip procedural sections and any section that does not clearly fit; choose none if none fit. Return {"picks":[{"id","reason"}]}. Use only these sections:\n` +
+        `Choose up to 4 sections that define an offence matching these facts, starting with the core offence such as cheating where it fits, and give a one-line reason for each. Skip procedural sections and any section that does not clearly fit; choose none if none fit. Return {"picks":[{"id","reason"}]}. Use only these sections:\n` +
           `${candidates.map((c) => `${c.id}: ${c.text.slice(0, 700)}`).join("\n\n")}\n${wrapStory(fields.summary)}`,
         LawPicks,
       );
@@ -158,7 +188,8 @@ export async function writeDraft(story: string, fields: Fields, laws: { act: str
           `Use only these facts. Write ____ for anything missing. Add no other number or date.${correction}\nFacts: ${JSON.stringify(fields)}\nSections: ${laws.map((l) => `${l.act} s.${l.section}`).join(", ")}\n${wrapStory(story)}`,
         Draft,
       );
-      const problems = factCheck(`${generated.complaint_en}\n${generated.complaint_translated}`, allowed);
+      const both = `${generated.complaint_en}\n${generated.complaint_translated}`;
+      const problems = [...factCheck(both, allowed), ...unsupportedSections(both, laws)];
       if (!problems.length) {
         emit({ tool: "fact_check", status: "ok", detail: attempt ? "Corrected draft: every number now traces back to your details" : "Every number traces back to your details" });
         return { draft: generated.complaint_en, draftTranslated: generated.complaint_translated, draftError: null };
