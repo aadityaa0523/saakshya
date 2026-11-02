@@ -122,7 +122,7 @@ flowchart TD
 
 ## Run it locally
 
-You need Node 22 or later, a Postgres database and an OpenAI-compatible AI key.
+You need Node 22 or later, a Postgres database with the pgvector extension available (Supabase includes it), and an OpenAI-compatible AI key.
 
 ```bash
 git clone https://github.com/aadityaa0523/saakshya.git
@@ -131,7 +131,7 @@ npm install
 cp .env.example .env.local
 ```
 
-Fill in `.env.local`, then:
+In Windows Command Prompt, use `copy .env.example .env.local`. Fill in `.env.local`, then:
 
 ```bash
 npm run db:setup
@@ -139,6 +139,8 @@ npm run db:laws
 npm run db:embed
 npm run dev
 ```
+
+`db:setup` creates the tables, `db:laws` reads the Acts from `laws/`, and `db:embed` creates the search vectors. `db:embed` can be run again if a rate limit stops it.
 
 Open http://localhost:3000, and check `/api/health` to see which services are connected. The database connection uses the Supabase root certificate in `lib/supabase-ca.mjs`, so replace it for another provider.
 
@@ -151,6 +153,27 @@ Open http://localhost:3000, and check `/api/health` to see which services are co
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_WHATSAPP_FROM` | WhatsApp | For WhatsApp |
 | `APP_URL` | Report links and webhook checks | For WhatsApp |
 
+To run the checks:
+
+```bash
+npx tsc --noEmit
+npx eslint app lib
+npm test
+npm run eval:laws
+```
+
+`npm run eval:laws` compares keyword and hybrid search, and needs the database and AI settings above.
+
+### Deploy
+
+Import the repository into Vercel or run `npx vercel deploy --prod`, then add the same settings to the Vercel project. `vercel.json` sets the server region, so change it to match your database.
+
+### Connect WhatsApp
+
+1. Set `APP_URL` to your deployed address, with no trailing slash.
+2. In the Twilio WhatsApp sandbox settings, set "When a message comes in" to `https://your-app/api/whatsapp` using POST.
+3. From your phone, send the sandbox's join phrase to its number, then send your story.
+
 ## Project structure
 
 ```text
@@ -158,10 +181,11 @@ app/            Pages, plus API routes in app/api
 lib/agent.ts    Triage agent, self-correction and fact check
 lib/safety.ts   OTP blocking, masking and urgency
 lib/chain.ts    Hash-chained record
-lib/llm.ts      AI calls and backup model
+lib/llm.ts      AI calls, embeddings and backup model
+lib/law-search.mjs  Keyword and hybrid search queries
 lib/actions.ts  Readiness, 1930 script and bank request
 db/schema.sql   Database tables
-scripts/        Database setup, law loading and translation
+scripts/        Database setup, law loading, embedding, search comparison and translation
 laws/           Act text
 public/i18n/    Site translations
 tests/          Automated tests
